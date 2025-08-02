@@ -1,0 +1,189 @@
+#lfmmaf-results-container {
+    max-height: 375px;
+    overflow: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 0;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+#lffmaf-input-loading {
+    top: -25px;
+    float: right;
+    margin-right: 2.7rem;
+    opacity: 0;
+    transition: 0.15s;
+}
+
+#lfmmaf-results-container a {
+    color: inherit;
+}
+
+#lfmmaf-messages-container {
+    margin-top: 1rem;
+    margin: auto;
+    padding-top: 1rem;
+    padding-bottom: 0.5rem;
+}
+
+.lffmaf-result-entry {
+    position: relative;
+    max-width: 220px;
+}
+
+.lffmaf-result-entry > img {
+    width: 100%;
+    height: auto;
+    border: 0.25px solid #f1f1f1;;
+}
+
+.lffmaf-result-info {
+    margin-top: 0.25rem;
+}
+
+.lffmaf-result-info > div {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.lfmmaf-result-title-text {
+    font-weight: 700;
+    line-height: 21px;
+}
+
+.lfmmaf-result-subtitle-text {
+    font-size: 12px;
+    color: #999;
+    line-height: 18px;
+}
+
+.lfmmaf-upload-button {
+    background-color: #d92323;
+    border-radius: 50%;
+    color: transparent;
+    color: #fff;
+    display: inline-block;
+    font: 0 / 0 a;
+    height: 16px;
+    height: 32px;
+    min-width: 0;
+    position: absolute;
+    text-shadow: none;
+    transition: background-color .5s ease;
+    vertical-align: top;
+    width: 16px;
+    width: 32px;
+    right: 5.5px;
+    top: 14px;
+}
+
+.lfmmaf-upload-button.lfmmaf-selected {
+    background-color: #096;
+    pointer-events: none;
+}
+
+.lfmmaf-upload-button:hover {
+    background-color: #000;
+}
+
+.lfmmaf-upload-button > img {
+    width: 16px;
+    height: auto;
+    pointer-events: none;
+}
+
+.lfmmaf-file-input-disabled {
+    opacity: 50%;
+    pointer-events: none;
+}
+
+/**
+ * ==============================================
+ * Dot Pulse - https://nzbin.github.io/three-dots
+ * ==============================================
+ */
+.dot-pulse {
+    position: relative;
+    left: -9999px;
+    width: 10px;
+    height: 10px;
+    border-radius: 5px;
+    background-color: #b90000;
+    color: #b90000;
+    box-shadow: 9999px 0 0 -5px;
+    animation: dot-pulse 1.5s infinite linear;
+    animation-delay: 0.25s;
+}
+
+.dot-pulse::before,
+.dot-pulse::after {
+    content: "";
+    display: inline-block;
+    position: absolute;
+    top: 0;
+    width: 10px;
+    height: 10px;
+    border-radius: 5px;
+    background-color: #b90000;
+    color: #b90000;
+}
+
+.dot-pulse::before {
+    box-shadow: 9984px 0 0 -5px;
+    animation: dot-pulse-before 1.5s infinite linear;
+    animation-delay: 0s;
+}
+
+.dot-pulse::after {
+    box-shadow: 10014px 0 0 -5px;
+    animation: dot-pulse-after 1.5s infinite linear;
+    animation-delay: 0.5s;
+}
+
+@keyframes dot-pulse-before {
+    0% {
+        box-shadow: 9984px 0 0 -5px;
+    }
+
+    30% {
+        box-shadow: 9984px 0 0 2px;
+    }
+
+    60%,
+    100% {
+        box-shadow: 9984px 0 0 -5px;
+    }
+}
+
+@keyframes dot-pulse {
+    0% {
+        box-shadow: 9999px 0 0 -5px;
+    }
+
+    30% {
+        box-shadow: 9999px 0 0 2px;
+    }
+
+    60%,
+    100% {
+        box-shadow: 9999px 0 0 -5px;
+    }
+}
+
+@keyframes dot-pulse-after {
+    0% {
+        box-shadow: 10014px 0 0 -5px;
+    }
+
+    30% {
+        box-shadow: 10014px 0 0 2px;
+    }
+
+    60%,
+    100% {
+        box-shadow: 10014px 0 0 -5px;
+    }
+}

@@ -1,0 +1,40 @@
+{
+    "manifest_version": 3,
+    "name": "Last.fm Missing Artwork Fixer",
+    "version": "1.0.0",
+    "description": "Easily identify albums with missing artwork on Last.fm and quickly fix them with an embedded artwork finder. Help yourself other Last.fm users by making Last.fm's album art more complete!",
+    "icons": {
+        "16": "icons/icon16.png",
+        "32": "icons/icon32.png",
+        "48": "icons/icon48.png",
+        "128": "icons/icon128.png"
+    },
+    "permissions": [
+        "storage"
+    ],
+    "content_scripts": [
+        {
+            "js": [
+                "js/moment.min.js",
+                "js/upload-artwork-page.js"
+            ],
+            "css": [
+                "css/lfmmaf.css"
+            ],
+            "matches": [
+                "https://*.last.fm/*"
+            ]
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "html/upload-artwork-widget.html",
+                "json/default-settings.json"
+            ],
+            "matches": [
+                "https://*.last.fm/*"
+            ]
+        }
+    ]
+}

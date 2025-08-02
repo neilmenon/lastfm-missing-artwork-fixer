@@ -1,0 +1,2 @@
+# Last.fm Missing Artwork Fixer
+Easily identify albums with missing artwork on Last.fm and quickly fix them with an embedded artwork finder. Help yourself other Last.fm users by making Last.fm's album art more complete!

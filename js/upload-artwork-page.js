@@ -9,10 +9,12 @@ let settings = {},
     results = null,
     loadingElement = null,
     lastfmFileInputElement = null,
-    lastfmUploadButton = null;
+    lastfmUploadButton = null,
+    lastfmArtist = null,
+    lastfmAlbum = null
 ;
 
-async function main() {
+async function uploadArtworkPage() {
     settings = await getSettings();
     extensionLog(`Extension settings loaded. ${JSON.stringify(settings)}`);
 
@@ -38,6 +40,8 @@ async function injectArtworkWidget() {
     const widget = document.createElement('div');
     widget.innerHTML = htmlText;
 
+    widget.querySelector('img.lfmmaf-extension-icon').src = chrome.runtime.getURL('icons/icon16.png');
+
     chooseFileContainer.parentElement.insertBefore(widget, chooseFileContainer);
     searchInputElement = document.getElementById('lfmmaf-artwork-search');
     resultsContainer = document.getElementById('lfmmaf-results-container');
@@ -45,12 +49,14 @@ async function injectArtworkWidget() {
     loadingElement = document.getElementById('lffmaf-input-loading');
     lastfmFileInputElement = document.getElementById('id_image');
     lastfmUploadButton = document.querySelector('button[type="submit"].btn-primary');
+
+    lastfmUploadButton.addEventListener('click', () => saveSettings({ ...settings, userFixedArtworksCount: settings.userFixedArtworksCount + 1 }));
 }
 
 function injectDefaultSearchQuery() {
-    const artist = document.querySelector("span[itemprop=byArtist] span[itemprop=name]")?.textContent?.trim()
-    const album = document.querySelector("h1.header-new-title[itemprop=name]")?.textContent?.trim()
-    const searchQuery = `${ artist ?? '' } ${ album ?? '' }`.trim()
+    lastfmArtist = document.querySelector("span[itemprop=byArtist] span[itemprop=name]")?.textContent?.trim()
+    lastfmAlbum = document.querySelector("h1.header-new-title[itemprop=name]")?.textContent?.trim()
+    const searchQuery = `${ lastfmArtist ?? '' } ${ lastfmAlbum ?? '' }`.trim()
 
     searchInputElement.value = searchQuery
 }
@@ -99,17 +105,13 @@ async function searchAppleMusic(searchQuery) {
 
 function displayResults() {
     if (!results.length) {
-        messagesContainer.innerHTML = `
-            <div class="alert alert-info" style="width:100%">
-                No results found for the given search terms.
-            </div>
-        `;
+        if (!searchInputElement.value?.trim()?.length) {
+            clearMessageContainer();
+        } else {
+            showMessage(`No results found for the given search terms. <a href="${settings.googleImagesSearchUrl + searchInputElement.value}" target="_blank">Here's a quick link</a> to search on Google Images. If you find something there, hit <strong>Copy image address</strong> and paste it in the box above, we'll auto-fetch and attach it for you!`, 'info');
+        }
     } else {
-        messagesContainer.innerHTML = `
-            <div class="alert alert-info" style="width:100%">
-                Displaying ${results.length} result${results.length == 1 ? '' : 's'} from ${settings.selectedArtworkSource}.
-            </div>
-        `;
+        showMessage(`Displaying ${results.length} result${results.length == 1 ? '' : 's'} from ${settings.selectedArtworkSource}.`, 'info');
     }
 
     let resultsHTML = '';
@@ -139,9 +141,21 @@ function displayResults() {
 }
 
 async function executeSearchAndDisplayResults() {
+    if (/https?:\/\/[^\s/$.?#].[^\s]*/gi.test(searchInputElement.value)) {
+        extensionLog("User provided direct image link. Attempting to fetch it.");
+        await fetchAndPopulateImageFromLink();
+        return;
+    }
+
+    if (searchInputElement.value?.startsWith('data:')) {
+        showMessage(`Whoops. You entered the image in BLOB format (starts with "data:"). Only direct links and text searches are allowed. If you're using Google Images, make sure you click on the image in the results <em>first</em> before doing "Copy image address".`, 'danger');
+        hideLoadingPulse();
+        return;
+    }
+
     results = await searchForArtwork();
     if (!results) {
-        showFailedMessage(`Failed to fetch artwork from ${settings.selectedArtworkSource}. Please try again.`);
+        showMessage(`Failed to fetch artwork from ${settings.selectedArtworkSource}. Please try again.`, 'danger');
         return;
     }
     extensionLog(`Found ${results.length} result(s).`)
@@ -186,7 +200,7 @@ async function selectArtworkByAlbumId(albumId, clickedElement) {
 
         const fileSizeHuman = (file.size / (1024 * 1024)).toFixed(2) + " MB";
         if (file.size > 5 * 1024 * 1024) {
-            showFailedMessage(`Artwork size exceeds the maximum allowed by Last.fm (${fileSizeHuman} / 5 MB). Please choose a smaller artwork size in the extension settings to proceed.`);
+            showMessage(`Artwork size exceeds the maximum allowed by Last.fm (${fileSizeHuman} / 5 MB). Please choose a smaller artwork size in the extension settings to proceed.`, 'danger');
             hideLoadingPulse();
             return;
         }
@@ -218,14 +232,87 @@ async function selectArtworkByAlbumId(albumId, clickedElement) {
         lastfmDescriptionElement.value = `Artwork for ${selectedResult.album} by ${selectedResult.artist}, released ${moment(selectedResult.releaseDate).format("D MMM YYYY")}.`
     } catch (e) {
         extensionError("Error while fetching or attaching image.", e)
-        showFailedMessage("There was an issue downloading and/or attaching the image to Last.fm. Please try again.")
+        showMessage("There was an issue downloading and/or attaching the image to Last.fm. Please try again.", 'danger')
         return;
     } finally {
         hideLoadingPulse();
     }
 
     extensionLog("Successfully attached image to Last.fm file input.");
-    lastfmUploadButton.addEventListener('click', () => saveSettings({ ...settings, userFixedArtworksCount: settings.userFixedArtworksCount + 1 }));
+}
+
+async function fetchAndPopulateImageFromLink() {
+    showLoadingPulse();
+
+    try {
+        const response = await fetch(searchInputElement.value);
+        const blob = await response.blob();
+
+        const mimeType = blob.type;
+        const extensionMap = {
+            'image/jpeg': 'jpg',
+            'image/png': 'png',
+            'image/gif': 'gif'
+        };
+
+        const extension = extensionMap[mimeType];
+
+        if (!extension) {
+            showMessage(`Unsupported image format: ${mimeType}.`, 'danger');
+            hideLoadingPulse();
+            return;
+        }
+
+        const fileName = `${lastfmArtist} - ${lastfmAlbum}.${extension}`;
+        const file = new File([blob], fileName, { type: mimeType });
+
+        const fileSizeHuman = (file.size / (1024 * 1024)).toFixed(2) + " MB";
+
+        if (file.size > 5 * 1024 * 1024) {
+            showMessage(`Artwork size exceeds the maximum allowed by Last.fm (${fileSizeHuman} / 5 MB). Please choose a smaller artwork size in the extension settings to proceed.`, 'danger');
+            hideLoadingPulse();
+            return;
+        }
+
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        lastfmFileInputElement.files = dataTransfer.files;
+    
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const fileInputContainer = lastfmFileInputElement.closest('.btn-file');
+        fileInputContainer.classList.add('lfmmaf-file-input-disabled');
+
+        const fileInputLabel = document.querySelector('.btn-file-label');
+        fileInputLabel.innerHTML = `File selected for upload, ${fileSizeHuman}.`
+
+        const lastfmTitleElement = document.getElementById('id_title');
+        lastfmTitleElement.value = `${lastfmArtist} - ${lastfmAlbum}`;
+
+        const lastfmDescriptionElement = document.getElementById('id_description');
+        lastfmDescriptionElement.value = `Artwork for ${lastfmAlbum} by ${lastfmArtist}.`
+
+        resultsContainer.innerHTML = `
+            <div class="lffmaf-result-entry">
+                <img 
+                    src="${searchInputElement.value}"
+                    title="Artwork for ${lastfmArtist} - ${lastfmAlbum}"
+                >
+                <button class="lfmmaf-upload-button lfmmaf-selected" title="Select this artwork to upload">
+                    <img src="https://www.last.fm/static/images/icons/accept_fff_16.png">
+                </button>
+            </div> 
+        `;
+        showMessage(`Successfully fetched and attached ${extension?.toUpperCase()} image from provided URL.`, 'success');
+    } catch (e) {
+        extensionError("Error while fetching or attaching image.", e)
+        showMessage("There was an issue downloading and/or attaching the image to Last.fm. Please check the URL you provided. Some websites block this type of fetching, so you can also try a different site.", 'danger')
+        return;
+    } finally {
+        hideLoadingPulse();
+    }
+
+    extensionLog("Successfully attached image to Last.fm file input.")
 }
 
 function showLoadingPulse() {
@@ -240,9 +327,9 @@ function clearMessageContainer() {
     messagesContainer.innerHTML = '';
 }
 
-function showFailedMessage(message) {
+function showMessage(message, type) {
     messagesContainer.innerHTML = `
-        <div class="alert alert-danger" style="width:100%">
+        <div class="alert alert-${type}" style="width:100%">
             ${message}
         </div>
     `;
@@ -278,6 +365,6 @@ setInterval(() => {
     artworkWidgetContainer = document.getElementById('lfmmaf-widget');
     if (chooseFileContainer && !artworkWidgetContainer) {
         extensionLog("Found artwork upload form, initiating script.")
-        main();
+        uploadArtworkPage();
     }
 }, 1000);

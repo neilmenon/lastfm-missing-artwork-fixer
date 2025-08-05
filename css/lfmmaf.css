@@ -80,11 +80,6 @@
     top: 14px;
 }
 
-.lfmmaf-upload-button.lfmmaf-selected {
-    background-color: #096;
-    pointer-events: none;
-}
-
 .lfmmaf-upload-button:hover {
     background-color: #000;
 }
@@ -98,6 +93,83 @@
 .lfmmaf-file-input-disabled {
     opacity: 50%;
     pointer-events: none;
+}
+
+.lfmmaf-missing-artwork {
+    border: 2px solid #b90000;
+}
+
+.lfmmaf-missing-artwork-fixed {
+    border: 2px solid #096;
+}
+
+.lfmmaf-missing-artwork-button {
+    background-color: #d92323;
+    border-radius: 50%;
+    color: transparent;
+    color: #fff;
+    display: inline-block;
+    font: 0 / 0 a;
+    height: 16px;
+    height: 32px;
+    min-width: 0;
+    position: absolute!important;
+    text-shadow: none;
+    transition: background-color .5s ease;
+    vertical-align: top;
+    width: 16px;
+    width: 32px;
+    top: -15px;
+    right: -15px;
+}
+
+.lfmmaf-btn-small {
+    width: 20px;
+    height: 20px;
+    top: -10px;
+    right: -10px;
+}
+
+.lfmmaf-missing-artwork-button > img {
+    width: 16px!important;
+    height: auto!important;
+    pointer-events: none!important;
+    position: relative!important;
+    display: inline!important;
+}
+
+.lfmmaf-btn-small > img {
+    width: 10px !important;
+}
+
+.lfmmaf-missing-artwork-button:hover  {
+    background-color: #000;
+}
+
+.lfmmaf-upload-button.lfmmaf-selected,.lfmmaf-missing-artwork-button.lfmmaf-selected {
+    background-color: #096;
+    pointer-events: none;
+}
+
+#lfmmaf-upload-artwork-iframe-popup {
+    display: none;
+}
+
+.lfmmaf-widget-label {
+    display: flex !important;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+@media (max-width: 768px) {
+    .lfmmaf-widget-label {
+        justify-content: unset;
+    }
+    
+    .lfmmaf-upload-button {
+        top: 5px;
+    }
 }
 
 /**

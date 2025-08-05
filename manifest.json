@@ -16,7 +16,8 @@
         {
             "js": [
                 "js/moment.min.js",
-                "js/upload-artwork-page.js"
+                "js/upload-artwork-page.js",
+                "js/missing-artwork-identifier.js"
             ],
             "css": [
                 "css/lfmmaf.css"
@@ -30,7 +31,8 @@
         {
             "resources": [
                 "html/upload-artwork-widget.html",
-                "json/default-settings.json"
+                "json/default-settings.json",
+                "icons/icon16.png"
             ],
             "matches": [
                 "https://*.last.fm/*"

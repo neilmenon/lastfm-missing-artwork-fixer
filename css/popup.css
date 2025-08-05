@@ -1,0 +1,8 @@
+html {
+    width: 450px;
+    min-width: 350px;
+}
+
+.form-check-label {
+    padding-right: 0.25rem;
+}

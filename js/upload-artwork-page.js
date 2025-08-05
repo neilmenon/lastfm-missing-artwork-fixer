@@ -50,7 +50,11 @@ async function injectArtworkWidget() {
     lastfmFileInputElement = document.getElementById('id_image');
     lastfmUploadButton = document.querySelector('button[type="submit"].btn-primary');
 
-    lastfmUploadButton.addEventListener('click', () => saveSettings({ ...settings, userFixedArtworksCount: settings.userFixedArtworksCount + 1 }));
+    lastfmUploadButton.addEventListener('click', () => {
+        settings = { ...settings, userFixedArtworksCount: settings.userFixedArtworksCount + 1 }
+        saveSettings(settings);
+        chrome.runtime.sendMessage({ action: "setBadgeText", text: `${settings.userFixedArtworksCount}` });
+    });
 }
 
 function injectDefaultSearchQuery() {
@@ -166,12 +170,12 @@ function listenForNewSearches() {
     let debounceTimeout;
 
     searchInputElement.addEventListener('input', () => {
-    showLoadingPulse();
-    clearTimeout(debounceTimeout);
+        showLoadingPulse();
+        clearTimeout(debounceTimeout);
 
-    debounceTimeout = setTimeout(async () => {
-        await executeSearchAndDisplayResults();
-    }, 1000);
+        debounceTimeout = setTimeout(async () => {
+            await executeSearchAndDisplayResults();
+        }, 1000);
     });
 }
 
@@ -225,11 +229,15 @@ async function selectArtworkByAlbumId(albumId, clickedElement) {
         const fileInputLabel = document.querySelector('.btn-file-label');
         fileInputLabel.innerHTML = `File selected for upload, ${fileSizeHuman}.`
 
-        const lastfmTitleElement = document.getElementById('id_title');
-        lastfmTitleElement.value = `${selectedResult.artist} - ${selectedResult.album}`;
+        if (settings.populateTitleField) {
+            const lastfmTitleElement = document.getElementById('id_title');
+            lastfmTitleElement.value = `${selectedResult.artist} - ${selectedResult.album}`;
+        }
 
-        const lastfmDescriptionElement = document.getElementById('id_description');
-        lastfmDescriptionElement.value = `Artwork for ${selectedResult.album} by ${selectedResult.artist}, released ${moment(selectedResult.releaseDate).format("D MMM YYYY")}.`
+        if (settings.populateDescriptionField) {
+            const lastfmDescriptionElement = document.getElementById('id_description');
+            lastfmDescriptionElement.value = `Artwork for ${selectedResult.album} by ${selectedResult.artist}, released ${moment(selectedResult.releaseDate).format("D MMM YYYY")}.`
+        }
     } catch (e) {
         extensionError("Error while fetching or attaching image.", e)
         showMessage("There was an issue downloading and/or attaching the image to Last.fm. Please try again.", 'danger')
@@ -286,11 +294,15 @@ async function fetchAndPopulateImageFromLink() {
         const fileInputLabel = document.querySelector('.btn-file-label');
         fileInputLabel.innerHTML = `File selected for upload, ${fileSizeHuman}.`
 
-        const lastfmTitleElement = document.getElementById('id_title');
-        lastfmTitleElement.value = `${lastfmArtist} - ${lastfmAlbum}`;
+        if (settings.populateTitleField) {
+            const lastfmTitleElement = document.getElementById('id_title');
+            lastfmTitleElement.value = `${lastfmArtist} - ${lastfmAlbum}`;
+        }
 
-        const lastfmDescriptionElement = document.getElementById('id_description');
-        lastfmDescriptionElement.value = `Artwork for ${lastfmAlbum} by ${lastfmArtist}.`
+        if (settings.populateDescriptionField) {
+            const lastfmDescriptionElement = document.getElementById('id_description');
+            lastfmDescriptionElement.value = `Artwork for ${lastfmAlbum} by ${lastfmArtist}.`
+        }
 
         resultsContainer.innerHTML = `
             <div class="lffmaf-result-entry">

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Last.fm Missing Artwork Fixer</title>
+    <link href="https://bootswatch.com/5/darkly/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+    <link href="/css/popup.css" rel="stylesheet">
+</head>
+<body class="p-0">
+    <div class="container p-0">
+        <div class="card border-secondary">
+            <div class="card-header d-flex justify-content-between">
+                <span>Last.fm Missing Artwork Fixer</span>
+                <span class="badge bg-success"></span>
+            </div>
+            <div class="card-body">
+                <form id="settingsForm">
+                    <div class="form-group mb-3">
+                        <label for="selectedArtworkSource" class="form-label">Artwork Source</label>
+                        <select id="selectedArtworkSource" class="form-select"></select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="selectedCountry" class="form-label">Country</label>
+                        <select id="selectedCountry" class="form-select"></select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="selectedArtworkSize" class="form-label">Artwork Size (px)</label>
+                        <input type="number" id="selectedArtworkSize" class="form-control" min="800" max="10000">
+                        <div class="invalid-feedback">Invalid artwork size.</div>
+                    </div>
+                    <div class="form-group form-check form-switch mb-2">
+                        <input type="checkbox" class="form-check-input" id="populateTitleField">
+                        <label class="form-check-label" for="populateTitleField">Populate Title Field</label>
+                        <span data-bs-toggle="tooltip" data-bs-placement="right" title="Auto populate title field on Last.fm image upload form with artist and album name.">
+                            <i class="bi bi-question-circle"></i>
+                        </span>
+                    </div>
+                    <div class="form-group form-check form-switch mb-2">
+                        <input type="checkbox" class="form-check-input" id="populateDescriptionField">
+                        <label class="form-check-label" for="populateDescriptionField">Populate Description Field</label>
+                        <span data-bs-toggle="tooltip" data-bs-placement="right" title="Auto populate description field on Last.fm image upload form with artist and album name as well as release date if available.">
+                            <i class="bi bi-question-circle"></i>
+                        </span>
+                    </div>
+                    <div class="form-group form-check form-switch mb-2">
+                        <input type="checkbox" class="form-check-input" id="highlightMissingArtworks">
+                        <label class="form-check-label" for="highlightMissingArtworks">Highlight Missing Artworks</label>
+                        <span data-bs-toggle="tooltip" data-bs-placement="right" title="Identify missing artworks with a red border and a button to fix them.">
+                            <i class="bi bi-question-circle"></i>
+                        </span>
+                    </div>
+                    <div class="form-group form-check form-switch mb-2">
+                        <input type="checkbox" class="form-check-input" id="autoCloseUploadTabWhenArtworkUploaded">
+                        <label class="form-check-label" for="autoCloseUploadTabWhenArtworkUploaded">Auto-close Upload Tab</label>
+                        <span data-bs-toggle="tooltip" data-bs-placement="right" title="Once you upload an image via the extension-opened new tab, automatically close it to return to where you were on Last.fm.">
+                            <i class="bi bi-question-circle"></i>
+                        </span>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <script src="/js/bootstrap.bundle.min.js"></script>
+        <script src="/js/popup.js"></script>
+    </div>
+</body>
+</html>

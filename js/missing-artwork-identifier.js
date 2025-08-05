@@ -53,33 +53,33 @@ async function missingArtworkIdentifier() {
                 return;
             }
 
-            if (settings.autoCloseUploadTabWhenArtworkUploaded) {
-                const checkInterval = setInterval(() => {
-                    extensionLog("Checking if new tab has been closed...")
-                    try {
-                        if (uploadTab.closed) {
-                            clearInterval(checkInterval);
-                            extensionLog("Tab manually closed by user.")
-                            return;
-                        }
-    
-                        if (!uploadTab.location.href.includes('/+images/upload') && uploadTab.location.href.includes('/+images/')) {
-                            const imageIDUploaded = uploadTab.location.href?.split('/').pop();
-                            clearInterval(checkInterval);
+            const checkInterval = setInterval(() => {
+                extensionLog(`Polling for new tab ${imageUploadLink} image upload and/or closure.`)
+                try {
+                    const isOnUploadedImagePage = !uploadTab.location.href.includes('/+images/upload') && uploadTab.location.href.includes('/+images/')
+
+                    if (isOnUploadedImagePage) {
+                        const imageIDUploaded = uploadTab.location.href?.split('/').pop();
+                        
+                        if (!uploadTab.closed && settings.autoCloseUploadTabWhenArtworkUploaded) {
                             uploadTab.close();
-
-                            const buttonElementsMatchingThisAlbum = document.querySelectorAll(`.lfmmaf-missing-artwork-button[data-lfmmaf-album-link="${clickedButtonAlbumLink}"]`);
-                            for (const buttonElement of buttonElementsMatchingThisAlbum) {
-                                buttonElement.parentElement.previousElementSibling.src = `https://lastfm.freetls.fastly.net/i/u/300x300/${imageIDUploaded}.jpg`;
-                                buttonElement.parentElement.previousElementSibling.classList.add('lfmmaf-missing-artwork-fixed');
-                                buttonElement.firstElementChild.src = 'https://www.last.fm/static/images/icons/accept_fff_16.png';
-                                buttonElement.classList.add('lfmmaf-selected');
-                            }
-
                         }
-                    } catch (err) { }
-                }, 2000);
-            }
+
+                        const buttonElementsMatchingThisAlbum = document.querySelectorAll(`.lfmmaf-missing-artwork-button[data-lfmmaf-album-link="${clickedButtonAlbumLink}"]`);
+                        for (const buttonElement of buttonElementsMatchingThisAlbum) {
+                            buttonElement.parentElement.previousElementSibling.src = `https://lastfm.freetls.fastly.net/i/u/300x300/${imageIDUploaded}.jpg`;
+                            buttonElement.parentElement.previousElementSibling.classList.add('lfmmaf-missing-artwork-fixed');
+                            buttonElement.firstElementChild.src = 'https://www.last.fm/static/images/icons/accept_fff_16.png';
+                            buttonElement.classList.add('lfmmaf-selected');
+                        }
+                    }
+                    
+                    if (uploadTab.closed || isOnUploadedImagePage) {
+                        extensionLog("User uploaded an image in the new tab and/or closed the tab.");
+                        clearInterval(checkInterval);
+                    }
+                } catch (err) { }
+            }, 2000);
         }
     }, true);
 }

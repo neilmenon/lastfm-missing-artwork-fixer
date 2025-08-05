@@ -12,6 +12,9 @@
     "permissions": [
         "storage"
     ],
+    "action": {
+        "default_popup": "html/popup.html"
+    },
     "content_scripts": [
         {
             "js": [
@@ -38,5 +41,8 @@
                 "https://*.last.fm/*"
             ]
         }
-    ]
+    ],
+    "background": {
+        "service_worker": "js/background.js"
+    }
 }

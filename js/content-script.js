@@ -1,1 +1,0 @@
-console.log("Last.fm Missing Artwork Fixer - injected");

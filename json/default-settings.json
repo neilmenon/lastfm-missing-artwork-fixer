@@ -3,7 +3,7 @@
         {
             "name": "Apple Music",
             "searchUrl": "https://itunes.apple.com/search?&limit=25&entity=album",
-            "maxSize": 9999
+            "maxSize": 10000
         }
     ],
     "googleImagesSearchUrl": "https://www.google.com/search?tbm=isch&q=",
@@ -17,6 +17,7 @@
     "userFixedArtworksCount": 0,
     "highlightMissingArtworks": true,
     "autoCloseUploadTabWhenArtworkUploaded": true,
+    "extensionTheme": "auto",
     "countryOptions": [
           {
             "value": "tz",

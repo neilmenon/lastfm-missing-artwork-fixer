@@ -37,6 +37,9 @@ async function missingArtworkIdentifier() {
             extensionLog(`Found and highlighted ${imageElementsMissingArtwork.length} missing artwork entries.`);
         }
 
+        const totalUnfixedArtworks = document.querySelectorAll(`img[src*="${settings.missingArtworkImageId}"]`).length;
+        chrome.runtime.sendMessage({ action: "setBadgeText", text: `${totalUnfixedArtworks}` });
+        chrome.runtime.sendMessage({ action: "setTitle", text: `${totalUnfixedArtworks} missing artwork(s) on this page.` });
     }, 1000);
 
     document.addEventListener('click', (event) => {

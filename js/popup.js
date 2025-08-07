@@ -1,5 +1,7 @@
+let settings, themeLink;
+
 async function initForm() {
-    const settings = await getSettings();
+    settings = await getSettings();
 
     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
     const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
@@ -32,6 +34,11 @@ async function initForm() {
     document.getElementById('highlightMissingArtworks').checked = settings.highlightMissingArtworks;
     document.getElementById('autoCloseUploadTabWhenArtworkUploaded').checked = settings.autoCloseUploadTabWhenArtworkUploaded;
 
+    const extensionThemeRadio = document.querySelector(`input[name="extensionTheme"][value="${settings.extensionTheme}"]`);
+    if (extensionThemeRadio) {
+      extensionThemeRadio.checked = true;
+    }
+    document.getElementById('userFixedArtworksCount').innerText = `${settings.userFixedArtworksCount}`;
 
     let debounceTimeout;
 
@@ -59,6 +66,17 @@ async function initForm() {
             await saveSettings(newSettings);
         }, 100);
     });
+
+    document.querySelectorAll('input[name="extensionTheme"]').forEach((radio) => {
+        radio.addEventListener('change', (event) => {
+            if (event.target.checked) {
+                const selectedTheme = event.target.value;
+                settings = { ...settings, extensionTheme: selectedTheme };
+                saveSettings(settings);
+                loadTheme();
+            }
+        });
+    });
 }
 
 async function getSettings() {
@@ -78,4 +96,25 @@ async function saveSettings(newSettings) {
     );
 }
 
-initForm();
+function loadTheme() {
+    const themeBySystemPreference = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'darkly' : 'flatly';
+    themeLink.href = `https://bootswatch.com/5/${ settings.extensionTheme === 'auto' ? themeBySystemPreference : settings.extensionTheme }/bootstrap.min.css`;
+}
+
+async function main() {
+    await initForm();
+
+    // Theme Loader
+    const head = document.head || document.getElementsByTagName('head')[0];
+    
+    themeLink = document.createElement('link');
+    themeLink.rel = 'stylesheet';
+    
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', loadTheme);
+    
+    loadTheme();
+    head.appendChild(themeLink);
+}
+
+
+main();

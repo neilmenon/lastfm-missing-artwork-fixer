@@ -31,6 +31,7 @@ async function uploadArtworkPage() {
     extensionLog("Listening for new searches and artwork selection.");
     listenForNewSearches();
     listenForArtworkSelection();
+    return true;
 }
 
 async function injectArtworkWidget() {
@@ -39,10 +40,10 @@ async function injectArtworkWidget() {
 
     const widget = document.createElement('div');
     widget.innerHTML = htmlText;
-
     widget.querySelector('img.lfmmaf-extension-icon').src = chrome.runtime.getURL('icons/icon16.png');
 
     chooseFileContainer.parentElement.insertBefore(widget, chooseFileContainer);
+
     searchInputElement = document.getElementById('lfmmaf-artwork-search');
     resultsContainer = document.getElementById('lfmmaf-results-container');
     messagesContainer = document.getElementById('lfmmaf-messages-container');
@@ -53,15 +54,11 @@ async function injectArtworkWidget() {
     lastfmUploadButton.addEventListener('click', () => {
         settings = { ...settings, userFixedArtworksCount: settings.userFixedArtworksCount + 1 }
         saveSettings(settings);
-        chrome.runtime.sendMessage({ action: "setBadgeText", text: `${settings.userFixedArtworksCount}` });
     });
 }
 
 function injectDefaultSearchQuery() {
-    lastfmArtist = document.querySelector("span[itemprop=byArtist] span[itemprop=name]")?.textContent?.trim()
-    lastfmAlbum = document.querySelector("h1.header-new-title[itemprop=name]")?.textContent?.trim()
     const searchQuery = `${ lastfmArtist ?? '' } ${ lastfmAlbum ?? '' }`.trim()
-
     searchInputElement.value = searchQuery
 }
 
@@ -375,7 +372,14 @@ async function saveSettings(newSettings) {
 setInterval(() => {
     chooseFileContainer = document.querySelector('.form-group--image');
     artworkWidgetContainer = document.getElementById('lfmmaf-widget');
+    lastfmArtist = document.querySelector("span[itemprop=byArtist] span[itemprop=name]")?.textContent?.trim();
+    lastfmAlbum = document.querySelector("h1.header-new-title[itemprop=name]")?.textContent?.trim();
+
     if (chooseFileContainer && !artworkWidgetContainer) {
+        if (!lastfmAlbum?.length || !lastfmArtist?.length) {
+            extensionLog('Either artist or album is missing from page, this could be a non-album upload page. Skipping injection.');
+            return;
+        }
         extensionLog("Found artwork upload form, initiating script.")
         uploadArtworkPage();
     }

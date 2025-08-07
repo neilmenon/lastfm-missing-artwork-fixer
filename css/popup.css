@@ -3,6 +3,17 @@ html {
     min-width: 350px;
 }
 
-.form-check-label {
+.form-check-label, .form-label {
     padding-right: 0.25rem;
+}
+
+.btn-mini {
+    --bs-btn-padding-y: .05rem!important;
+    --bs-btn-padding-x: .5rem!important;
+    --bs-btn-font-size: .75rem!important;
+}
+
+.badge {
+    padding-top: 0.3rem!important;
+    padding-bottom: 0.3rem!important;
 }

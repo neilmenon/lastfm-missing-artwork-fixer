@@ -98,7 +98,7 @@ async function saveSettings(newSettings) {
 
 function loadTheme() {
     const themeBySystemPreference = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'darkly' : 'flatly';
-    themeLink.href = `https://bootswatch.com/5/${ settings.extensionTheme === 'auto' ? themeBySystemPreference : settings.extensionTheme }/bootstrap.min.css`;
+    themeLink.href = `/js/vendor/bootstrap-${ settings.extensionTheme === 'auto' ? themeBySystemPreference : settings.extensionTheme }.min.css`;
 }
 
 async function main() {

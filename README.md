@@ -43,6 +43,14 @@ The extension can be installed directly from the [Chrome Web Store][WebStore] or
 [WebStoreBadge]: https://img.shields.io/chrome-web-store/v/kcpejefblghgkenipbobdinkjlimpjfe.svg?label=chrome&logo=google-chrome&logoColor=white
 [WebStore]: https://chromewebstore.google.com/detail/lastfm-missing-artwork-fi/kcpejefblghgkenipbobdinkjlimpjfe
 
+## Screenshots
+
+![Screenshot #1](./screenshots/lfmmaf-1.png)
+<img src="./screenshots/lfmmaf-2.png" width="640" height="400">
+![Screenshot #3](./screenshots/lfmmaf-3.png)
+![Screenshot #4](./screenshots/lfmmaf-4.png)
+![Screenshot #5](./screenshots/lfmmaf-5.png)
+
 ## Support
 
 Any questions, issues or ideas, please post them on the Issues tab!

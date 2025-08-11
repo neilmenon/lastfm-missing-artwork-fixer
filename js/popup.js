@@ -1,13 +1,14 @@
-let settings, themeLink;
+let settings, constants, themeLink;
 
 async function initForm() {
     settings = await getSettings();
+    constants = await getConstants();
 
-    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
-    const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
 
     const artworkSelect = document.getElementById('selectedArtworkSource');
-    settings.artworkSourceOptions.forEach(option => {
+    constants.artworkSourceOptions.forEach(option => {
         const opt = document.createElement('option');
         opt.value = option.name;
         opt.textContent = option.name;
@@ -18,7 +19,7 @@ async function initForm() {
     });
 
     const countrySelect = document.getElementById('selectedCountry');
-    settings.countryOptions.forEach(optData => {
+    constants.countryOptions.forEach(optData => {
         const opt = document.createElement('option');
         opt.value = optData.value;
         opt.textContent = optData.label;
@@ -38,33 +39,37 @@ async function initForm() {
     if (extensionThemeRadio) {
       extensionThemeRadio.checked = true;
     }
+    
     document.getElementById('userFixedArtworksCount').innerText = `${settings.userFixedArtworksCount}`;
 
-    let debounceTimeout;
+    document.getElementById('saveSettingsButton').addEventListener('click', async (event) => {
+        event.preventDefault();
+        
+        document.getElementById('selectedArtworkSize').classList.remove('is-invalid');
 
-    document.getElementById('settingsForm').addEventListener('change', () => {
-        clearTimeout(debounceTimeout);
+        const newSettings = {
+            ...settings,
+            selectedArtworkSource: artworkSelect.value,
+            selectedCountry: countrySelect.value,
+            // selectedArtworkSize: parseInt(document.getElementById('selectedArtworkSize').value, 10),
+            populateTitleField: document.getElementById('populateTitleField').checked,
+            populateDescriptionField: document.getElementById('populateDescriptionField').checked,
+            highlightMissingArtworks: document.getElementById('highlightMissingArtworks').checked,
+            autoCloseUploadTabWhenArtworkUploaded: document.getElementById('autoCloseUploadTabWhenArtworkUploaded').checked
+        };
 
-        debounceTimeout = setTimeout(async () => {
-            document.getElementById('selectedArtworkSize').classList.remove('is-invalid');
-            const newSettings = {
-                ...settings,
-                selectedArtworkSource: artworkSelect.value,
-                selectedCountry: countrySelect.value,
-                selectedArtworkSize: parseInt(document.getElementById('selectedArtworkSize').value, 10),
-                populateTitleField: document.getElementById('populateTitleField').checked,
-                populateDescriptionField: document.getElementById('populateDescriptionField').checked,
-                highlightMissingArtworks: document.getElementById('highlightMissingArtworks').checked,
-                autoCloseUploadTabWhenArtworkUploaded: document.getElementById('autoCloseUploadTabWhenArtworkUploaded').checked
-            };
+        if (newSettings.selectedArtworkSize < 800 || newSettings.selectedArtworkSize > 10000) {
+            document.getElementById('selectedArtworkSize').classList.add('is-invalid');
+            return;
+        }
 
-            if (newSettings.selectedArtworkSize < 800 || newSettings.selectedArtworkSize > 10000) {
-                document.getElementById('selectedArtworkSize').classList.add('is-invalid');
-                return;
-            }
-    
-            await saveSettings(newSettings);
-        }, 100);
+        await saveSettings(newSettings);
+
+        event.target.classList.add('disabled');
+        event.target.innerHTML = '<i class="bi bi-check-lg"></i> Settings saved.';
+        await new Promise(res => setTimeout(res, 1500));
+        event.target.classList.remove('disabled');
+        event.target.innerHTML = 'Save settings';
     });
 
     document.querySelectorAll('input[name="extensionTheme"]').forEach((radio) => {
@@ -86,8 +91,12 @@ async function getSettings() {
     const defaultSettings = await (await fetch(chrome.runtime.getURL('json/default-settings.json'))).json();
     return {
         ...defaultSettings,
-        ...(userSettings.settings ?? {})
+        ...(userSettings.settings ?? {}),
     };
+}
+
+async function getConstants() {
+    return await (await fetch(chrome.runtime.getURL('json/constants.json'))).json();
 }
 
 async function saveSettings(newSettings) {

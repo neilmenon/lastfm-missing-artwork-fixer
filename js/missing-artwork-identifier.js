@@ -1,5 +1,6 @@
 async function missingArtworkIdentifier() {
     settings = await getSettings();
+    constants = await getConstants();
 
     if (!settings.highlightMissingArtworks) {
         extensionLog("Highlighting of missing artworks has been disabled in extension settings. Exiting here.");
@@ -9,7 +10,7 @@ async function missingArtworkIdentifier() {
     const albumLinkSelector = 'a[href*="/music/"]';
 
     setInterval(() => {
-        const imageElementsMissingArtwork = document.querySelectorAll(`img[src*="${settings.missingArtworkImageId}"]:not(.lfmmaf-missing-artwork)`);
+        const imageElementsMissingArtwork = document.querySelectorAll(`img[src*="${constants.missingArtworkImageId}"]:not(.lfmmaf-missing-artwork)`);
         for (const element of imageElementsMissingArtwork) {
             element.classList.add('lfmmaf-missing-artwork');
 
@@ -37,7 +38,7 @@ async function missingArtworkIdentifier() {
             extensionLog(`Found and highlighted ${imageElementsMissingArtwork.length} missing artwork entries.`);
         }
 
-        const totalUnfixedArtworks = document.querySelectorAll(`img[src*="${settings.missingArtworkImageId}"]`).length;
+        const totalUnfixedArtworks = document.querySelectorAll(`img[src*="${constants.missingArtworkImageId}"]`).length;
         chrome.runtime.sendMessage({ action: "setBadgeText", text: `${totalUnfixedArtworks}` });
         chrome.runtime.sendMessage({ action: "setTitle", text: `${totalUnfixedArtworks} missing artwork(s) on this page.` });
     }, 1000);

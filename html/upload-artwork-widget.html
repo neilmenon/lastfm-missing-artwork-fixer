@@ -4,8 +4,13 @@
         <span>Artwork Finder</span>
     </label>
     <div class="js-form-group-controls form-group-controls">
-        <input type="text" id="lfmmaf-artwork-search" placeholder="Start typing to search or enter direct image link...">
-        <div class="dot-pulse" id="lffmaf-input-loading"></div>
+        <div id="lfmmaf-artwork-search-filter-container">
+            <div>
+                <input type="text" id="lfmmaf-artwork-search" placeholder="Start typing to search or enter direct image link...">
+                <div class="dot-pulse" id="lffmaf-input-loading"></div>
+            </div>
+            <select id="lfmmaf-artwork-source"></select>
+        </div>
         <div id="lfmmaf-messages-container"></div>
         <div id="lfmmaf-results-container"></div>
     </div>

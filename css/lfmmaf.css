@@ -17,6 +17,24 @@
     transition: 0.15s;
 }
 
+#lfmmaf-artwork-source {
+    width: 60px;
+}
+
+#lfmmaf-artwork-source > option > img {
+    width: 16px;
+    height: auto;
+}
+
+#lfmmaf-artwork-search-filter-container {
+    display: flex;
+    gap: 0.5rem;
+}
+
+#lfmmaf-artwork-search-filter-container > div:first-child{
+    flex-grow: 1;
+}
+
 #lfmmaf-results-container a {
     color: inherit;
 }

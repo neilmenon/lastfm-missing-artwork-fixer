@@ -1,8 +1,66 @@
+let constants;
+
+async function init() {
+    constants = await getConstants();
+}
+
+init();
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "setBadgeText") {
         chrome.action.setBadgeText({ text: request.text, tabId: sender.tab.id });
     }
+
     if (request.action === "setTitle") {
         chrome.action.setTitle({ title: request.text, tabId: sender.tab.id });
     }
+
+    if (request.action === "fetchImage") {
+        fetch(request.url)
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return response.blob();
+        })
+        .then(blob => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                sendResponse({ success: true, dataUrl: reader.result });
+            };
+            reader.readAsDataURL(blob);
+        })
+        .catch(error => {
+            sendResponse({ success: false, error: error.message });
+        });
+        return true;
+    }
+
+    if (request.action === "fetchBandcamp") {
+        fetchBandcamp(request.searchQuery)
+            .then(results => sendResponse({ success: true, results }))
+            .catch(error => sendResponse({ success: false, error: error.message }));
+        return true;
+    }
 });
+
+async function fetchBandcamp(searchQuery) {
+    const url = constants.artworkSourceOptions.find(source => source.name === 'Bandcamp').searchUrl;
+    const body = {
+        search_text: searchQuery,
+        search_filter: "a",
+        fan_id: null,
+        full_page: false
+    };
+
+    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+
+    const results = (await response.json());
+    return results?.auto?.results ?? [];
+}
+
+async function getConstants() {
+    return await (await fetch(chrome.runtime.getURL('json/constants.json'))).json();
+}

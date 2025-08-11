@@ -1,9 +1,11 @@
 
 
 let settings = {},
+    constants = {},
     chooseFileContainer = null,
     artworkWidgetContainer = null,
     searchInputElement = null,
+    sourceSelectElement = null,
     resultsContainer = null,
     messagesContainer = null,
     results = null,
@@ -16,6 +18,7 @@ let settings = {},
 
 async function uploadArtworkPage() {
     settings = await getSettings();
+    constants = await getConstants();
     extensionLog(`Extension settings loaded. ${JSON.stringify(settings)}`);
 
     extensionLog("Injecting artwork finder widget into DOM.")
@@ -45,11 +48,38 @@ async function injectArtworkWidget() {
     chooseFileContainer.parentElement.insertBefore(widget, chooseFileContainer);
 
     searchInputElement = document.getElementById('lfmmaf-artwork-search');
+    sourceSelectElement = document.getElementById('lfmmaf-artwork-source');
     resultsContainer = document.getElementById('lfmmaf-results-container');
     messagesContainer = document.getElementById('lfmmaf-messages-container');
     loadingElement = document.getElementById('lffmaf-input-loading');
     lastfmFileInputElement = document.getElementById('id_image');
     lastfmUploadButton = document.querySelector('button[type="submit"].btn-primary');
+
+    for (const source of constants.artworkSourceOptions) {
+        sourceSelectElement.innerHTML += `
+            <option value="${source.name}" title="${source.name}" ${settings.selectedArtworkSource === source.name ? 'selected' : ''}>
+                ${source.shortName}
+            </option>
+        `;
+    }
+
+    document.addEventListener("click", function (e) {
+        const link = e.target.closest("a.lfmmaf-link");
+        if (!link) return;
+
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        if (link.target === "_blank") {
+            window.open(link.href, "_blank");
+        } else {
+            window.location.href = link.href;
+        }
+    }, true);
+
+    sourceSelectElement.addEventListener('change', async () => {
+        await executeSearchAndDisplayResults();
+    });
 
     lastfmUploadButton.addEventListener('click', () => {
         settings = { ...settings, userFixedArtworksCount: settings.userFixedArtworksCount + 1 }
@@ -64,10 +94,11 @@ function injectDefaultSearchQuery() {
 
 async function searchForArtwork() {
     const searchFunctionsMap = {
-        "Apple Music": searchAppleMusic
+        "Apple Music": searchAppleMusic,
+        "Bandcamp": searchBandcamp,
     }
 
-    return searchFunctionsMap[settings.selectedArtworkSource](searchInputElement.value);
+    return searchFunctionsMap[sourceSelectElement.value](searchInputElement.value);
 }
 
 async function searchAppleMusic(searchQuery) {
@@ -79,7 +110,7 @@ async function searchAppleMusic(searchQuery) {
     extensionLog(`Searching Apple Music for artwork with query: ${query}`)
     showLoadingPulse();
     clearMessageContainer();
-    const url = settings.artworkSourceOptions.find(source => source.name === 'Apple Music').searchUrl;
+    const url = constants.artworkSourceOptions.find(source => source.name === 'Apple Music').searchUrl;
     const response = await fetch(`${url}&country=${settings.selectedCountry}&term=${query}`)
         .catch(error => {
             extensionError("Error fetching Apple Music artwork.", error);
@@ -104,19 +135,57 @@ async function searchAppleMusic(searchQuery) {
     }))
 }
 
+
+async function searchBandcamp(searchQuery) {
+    const query = searchQuery?.trim();
+    if (!query?.length) {
+        hideLoadingPulse();
+        return [];
+    }
+    extensionLog(`Searching Bandcamp for artwork with query: ${query}`);
+    showLoadingPulse();
+    clearMessageContainer();
+    
+    const results = await fetchBandcampResults(query)
+        .catch(error => {
+            extensionError("Error fetching Bandcamp artwork.", error);
+            return null;
+        });
+
+    hideLoadingPulse();
+    if (!results) {
+        return;
+    }
+
+    return results.map(album => ({
+        artist: album.band_name,
+        album: album.name,
+        releaseDate: null,
+        trackCount: null,
+        artworkUrl: `https://f4.bcbits.com/img/${album.type}${album.art_id}_10.jpg`,
+        artistUrl: album.item_url_root,
+        albumUrl: album.item_url_path,
+        id: `${album.id}`
+    }));
+}
+
 function displayResults() {
     if (!results.length) {
         if (!searchInputElement.value?.trim()?.length) {
             clearMessageContainer();
         } else {
-            showMessage(`No results found for the given search terms. <a href="${settings.googleImagesSearchUrl + searchInputElement.value}" target="_blank">Here's a quick link</a> to search on Google Images. If you find something there, hit <strong>Copy image address</strong> and paste it in the box above, we'll auto-fetch and attach it for you!`, 'info');
+            showMessage(`No results found for the given search terms. Try another artwork source. Or, <a href="${constants.googleImagesSearchUrl + searchInputElement.value}" target="_blank">here's a quick link</a> to search on Google Images. If you find something there, hit <strong>Copy image address</strong> and paste it in the box above, we'll auto-fetch and attach it for you!`, 'info');
         }
     } else {
-        showMessage(`Displaying ${results.length} result${results.length == 1 ? '' : 's'} from ${settings.selectedArtworkSource}.`, 'info');
+        showMessage(`Displaying ${results.length} result${results.length == 1 ? '' : 's'} from ${sourceSelectElement.value}.`, 'info');
     }
 
     let resultsHTML = '';
     for (const result of results) {
+        let subTitle = '';
+        if (result.releaseDate && result.trackCount) {
+            subTitle = `<div class="lfmmaf-result-subtitle-text">${moment(result.releaseDate).format("D MMM YYYY")} · ${result.trackCount} track${result.trackCount == 1 ? '' : 's'}</div>`;
+        }
         resultsHTML += `
             <div class="lffmaf-result-entry">
                 <img 
@@ -128,12 +197,12 @@ function displayResults() {
                 </button>
                 <div class="lffmaf-result-info">
                     <div class="lfmmaf-result-title-text">
-                        <a href="${result.albumUrl}" target="_blank" title="Open ${result.album} in ${settings.selectedArtworkSource}">${result.album}</a>
+                        <a href="${result.albumUrl}" target="_blank" title="Open ${result.album} in ${sourceSelectElement.value}" class="lfmmaf-link">${result.album}</a>
                     </div>
                     <div>
-                        <a href="${result.artistUrl}" target="_blank" title="Open ${result.artist} in ${settings.selectedArtworkSource}">${result.artist}</a>
+                        <a href="${result.artistUrl}" target="_blank" title="Open ${result.artist} in ${sourceSelectElement.value}" class="lfmmaf-link">${result.artist}</a>
                     </div>
-                    <div class="lfmmaf-result-subtitle-text">${moment(result.releaseDate).format("D MMM YYYY")} · ${result.trackCount} track${result.trackCount == 1 ? '' : 's'}</div>
+                    ${subTitle}
                 </div>
             </div> 
         `;
@@ -156,7 +225,7 @@ async function executeSearchAndDisplayResults() {
 
     results = await searchForArtwork();
     if (!results) {
-        showMessage(`Failed to fetch artwork from ${settings.selectedArtworkSource}. Please try again.`, 'danger');
+        showMessage(`Failed to fetch artwork from ${sourceSelectElement.value}. Please try again.`, 'danger');
         return;
     }
     extensionLog(`Found ${results.length} result(s).`)
@@ -195,8 +264,7 @@ async function selectArtworkByAlbumId(albumId, clickedElement) {
     showLoadingPulse();
 
     try {
-        const response = await fetch(selectedResult.artworkUrl);
-        const blob = await response.blob();
+        const blob = await fetchImageBlob(selectedResult.artworkUrl);
         const file = new File([blob], `${selectedResult.artist} - ${selectedResult.album}.jpg`, { type: blob.type });
 
         const fileSizeHuman = (file.size / (1024 * 1024)).toFixed(2) + " MB";
@@ -233,7 +301,8 @@ async function selectArtworkByAlbumId(albumId, clickedElement) {
 
         if (settings.populateDescriptionField) {
             const lastfmDescriptionElement = document.getElementById('id_description');
-            lastfmDescriptionElement.value = `Artwork for ${selectedResult.album} by ${selectedResult.artist}, released ${moment(selectedResult.releaseDate).format("D MMM YYYY")}.`
+            const releasedDateText = selectedResult.releaseDate ? `, released ${moment(selectedResult.releaseDate).format("D MMM YYYY")}` : '';
+            lastfmDescriptionElement.value = `Artwork for ${selectedResult.album} by ${selectedResult.artist}${releasedDateText}.`
         }
     } catch (e) {
         extensionError("Error while fetching or attaching image.", e)
@@ -250,8 +319,7 @@ async function fetchAndPopulateImageFromLink() {
     showLoadingPulse();
 
     try {
-        const response = await fetch(searchInputElement.value);
-        const blob = await response.blob();
+        const blob = await fetchImageBlob(searchInputElement.value);
 
         const mimeType = blob.type;
         const extensionMap = {
@@ -324,6 +392,36 @@ async function fetchAndPopulateImageFromLink() {
     extensionLog("Successfully attached image to Last.fm file input.")
 }
 
+async function fetchImageBlob(url) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({ action: "fetchImage", url },
+      (response) => {
+        if (response && response.success) {
+          fetch(response.dataUrl).then(r => r.blob()).then(resolve).catch(reject);
+        } else {
+          reject(new Error(response?.error || "Unknown error"));
+        }
+      }
+    );
+  });
+}
+
+async function fetchBandcampResults(searchQuery) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({ action: "fetchBandcamp", searchQuery },
+      (response) => {
+        if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+        } else if (response && response.success) {
+            resolve(response.results);
+        } else {
+            reject(response?.error || "Unknown error");
+        }
+      }
+    );
+  });
+}
+
 function showLoadingPulse() {
     loadingElement.style.opacity = '100';
 }
@@ -361,6 +459,10 @@ async function getSettings() {
         ...defaultSettings,
         ...(userSettings.settings ?? {})
     };
+}
+
+async function getConstants() {
+    return await (await fetch(chrome.runtime.getURL('json/constants.json'))).json();
 }
 
 async function saveSettings(newSettings) {

@@ -1,6 +1,12 @@
-html {
-    width: 450px;
+html, body {
+    width: 100%;
+    max-width: 450px;
     min-width: 350px;
+    width: 450px;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    overflow-x: hidden;
 }
 
 .form-check-label, .form-label {
@@ -16,4 +22,8 @@ html {
 .badge {
     padding-top: 0.3rem!important;
     padding-bottom: 0.3rem!important;
+}
+
+#extensionVersion {
+    text-decoration: none;
 }

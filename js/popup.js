@@ -1,8 +1,11 @@
-let settings, constants, themeLink;
+let settings, constants, manifest, themeLink;
 
 async function initForm() {
     settings = await getSettings();
     constants = await getConstants();
+    manifest = await getManifest();
+    document.getElementById('extensionVersion').innerText = `v${manifest.version}`;
+    document.getElementById('extensionVersion').href = `https://github.com/neilmenon/lastfm-missing-artwork-fixer/releases/tag/${manifest.version}`;
 
     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
     [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
@@ -66,7 +69,7 @@ async function initForm() {
         await saveSettings(newSettings);
 
         event.target.classList.add('disabled');
-        event.target.innerHTML = '<i class="bi bi-check-lg"></i> Settings saved.';
+        event.target.innerHTML = '<i class="bi bi-check-lg"></i> Settings saved';
         await new Promise(res => setTimeout(res, 1500));
         event.target.classList.remove('disabled');
         event.target.innerHTML = 'Save settings';
@@ -91,12 +94,16 @@ async function getSettings() {
     const defaultSettings = await (await fetch(chrome.runtime.getURL('json/default-settings.json'))).json();
     return {
         ...defaultSettings,
-        ...(userSettings.settings ?? {}),
+        ...(userSettings?.settings ?? {}),
     };
 }
 
 async function getConstants() {
     return await (await fetch(chrome.runtime.getURL('json/constants.json'))).json();
+}
+
+async function getManifest() {
+    return await (await fetch(chrome.runtime.getURL('manifest.json'))).json();
 }
 
 async function saveSettings(newSettings) {

@@ -111,7 +111,7 @@ async function searchAppleMusic(searchQuery) {
     showLoadingPulse();
     clearMessageContainer();
     const url = constants.artworkSourceOptions.find(source => source.name === 'Apple Music').searchUrl;
-    const response = await fetch(`${url}&country=${settings.selectedCountry}&term=${query}`)
+    const response = await fetch(`${url}&country=${settings.selectedCountry}&term=${encodeURIComponent(query)}`)
         .catch(error => {
             extensionError("Error fetching Apple Music artwork.", error);
             return null;
@@ -457,7 +457,7 @@ async function getSettings() {
     const defaultSettings = await (await fetch(chrome.runtime.getURL('json/default-settings.json'))).json();
     return {
         ...defaultSettings,
-        ...(userSettings.settings ?? {})
+        ...(userSettings?.settings ?? {})
     };
 }
 

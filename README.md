@@ -5,6 +5,7 @@
 <h1>Last.fm Missing Artwork Fixer</h1>
 
 [![Chrome Web Store][WebStoreBadge]][WebStore]
+[![Firefox][FirefoxBadge]][Firefox]
 
 </div>
 
@@ -38,10 +39,12 @@ Happy fixing!
 
 ## Installation
 
-The extension can be installed directly from the [Chrome Web Store][WebStore] or loaded as an unpacked extension.
+The extension can be installed directly from the [Chrome Web Store][WebStore], [Firefox][Firefox], or loaded as an unpacked extension.
 
 [WebStoreBadge]: https://img.shields.io/chrome-web-store/v/kcpejefblghgkenipbobdinkjlimpjfe.svg?label=chrome&logo=google-chrome&logoColor=white
 [WebStore]: https://chromewebstore.google.com/detail/lastfm-missing-artwork-fi/kcpejefblghgkenipbobdinkjlimpjfe
+[FirefoxBadge]: https://img.shields.io/amo/v/last-fm-missing-artwork-fixer.svg?label=firefox&logo=firefox-browser&logoColor=white
+[Firefox]: https://addons.mozilla.org/en-US/firefox/addon/last-fm-missing-artwork-fixer/
 
 ## Screenshots
 

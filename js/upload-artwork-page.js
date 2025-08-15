@@ -54,6 +54,7 @@ async function injectArtworkWidget() {
     loadingElement = document.getElementById('lffmaf-input-loading');
     lastfmFileInputElement = document.getElementById('id_image');
     lastfmUploadButton = document.querySelector('button[type="submit"].btn-primary');
+    lastfmUploadButton.classList.add('lfmmaf-lastfm-upload-image-button');
 
     for (const source of constants.artworkSourceOptions) {
         sourceSelectElement.innerHTML += `
@@ -92,31 +93,68 @@ function injectDefaultSearchQuery() {
     searchInputElement.value = searchQuery
 }
 
-async function searchForArtwork() {
+async function searchForArtwork(searchQuery) {
     const searchFunctionsMap = {
         "Apple Music": searchAppleMusic,
         "Bandcamp": searchBandcamp,
+        "Deezer": searchDeezer,
     }
 
-    return searchFunctionsMap[sourceSelectElement.value](searchInputElement.value);
+    showLoadingPulse();
+    clearMessageContainer();
+
+    let results = [];
+    let failedSources = [];
+    if (sourceSelectElement.value === 'All Sources Combined') {
+        const resultsBySource = {};
+        for (const source of Object.keys(searchFunctionsMap)) {
+            resultsBySource[source] = await searchFunctionsMap[source](searchQuery);
+            if (!resultsBySource[source]) {
+                failedSources.push(source);
+                resultsBySource[source] = [];
+            }
+        }
+
+        results = Array.from({ length: Math.max(...Object.values(resultsBySource).map(r => r.length)) })
+            .flatMap((_, i) => Object.values(resultsBySource).map(r => r[i]).filter(Boolean));
+    } else {
+        results = await searchFunctionsMap[sourceSelectElement.value](searchQuery);
+    }
+
+    if (results) {
+        if (!results.length) {
+            if (!searchInputElement.value?.trim()?.length) {
+                clearMessageContainer();
+            } else {
+                showMessage(`No results found for the given search terms. Try another artwork source. Or, <a href="${constants.googleImagesSearchUrl + searchInputElement.value}" target="_blank">here's a quick link</a> to search on Google Images. If you find something there, hit <strong>Copy image address</strong> and paste it in the box above, we'll auto-fetch and attach it for you!`, 'info');
+            }
+        } else {
+            const sourceSelectedText = sourceSelectElement.value === 'All Sources Combined' ? 'all sources' : sourceSelectElement.value;
+            const failedSourcesText = failedSources.length ? ` (failed sources: ${failedSources.join(', ')})` : '';
+            showMessage(`Displaying ${results.length} result${results.length == 1 ? '' : 's'} from ${sourceSelectedText}${failedSourcesText}.`, failedSources.length ? 'warning' : 'info');
+        }
+    }
+
+    hideLoadingPulse();
+    return results;
 }
 
 async function searchAppleMusic(searchQuery) {
-    const query = searchQuery?.trim();
-    if (!query?.length) {
-        hideLoadingPulse();
-        return [];
+    extensionLog(`Searching Apple Music for artwork with query: ${searchQuery}`);
+
+    const artworkSource = constants.artworkSourceOptions.find(source => source.name === 'Apple Music');
+    const url = artworkSource.searchUrl;
+    let response;
+    try {
+        response = await fetch(`${url}&country=${settings.selectedCountry}&term=${encodeURIComponent(searchQuery)}`)
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status} ${response.statusText}`);
+        }
+    } catch (error) {
+        extensionError("Error fetching Apple Music artwork.", error);
+        response = null;
     }
-    extensionLog(`Searching Apple Music for artwork with query: ${query}`)
-    showLoadingPulse();
-    clearMessageContainer();
-    const url = constants.artworkSourceOptions.find(source => source.name === 'Apple Music').searchUrl;
-    const response = await fetch(`${url}&country=${settings.selectedCountry}&term=${encodeURIComponent(query)}`)
-        .catch(error => {
-            extensionError("Error fetching Apple Music artwork.", error);
-            return null;
-        });
-    hideLoadingPulse();
+    
     if (!response) {
         return;
     }
@@ -131,28 +169,21 @@ async function searchAppleMusic(searchQuery) {
         artworkUrl: album.artworkUrl100.replace("100x100bb", `${settings.selectedArtworkSize}x${settings.selectedArtworkSize}bb`),
         artistUrl: album.artistViewUrl,
         albumUrl: album.collectionViewUrl,
-        id: `${album.collectionId}`
+        id: `am-${album.collectionId}`,
+        source: artworkSource,
     }))
 }
 
-
 async function searchBandcamp(searchQuery) {
-    const query = searchQuery?.trim();
-    if (!query?.length) {
-        hideLoadingPulse();
-        return [];
-    }
-    extensionLog(`Searching Bandcamp for artwork with query: ${query}`);
-    showLoadingPulse();
-    clearMessageContainer();
-    
-    const results = await fetchBandcampResults(query)
+    extensionLog(`Searching Bandcamp for artwork with query: ${searchQuery}`);
+
+    const artworkSource = constants.artworkSourceOptions.find(source => source.name === 'Bandcamp');
+    const results = await fetchBandcampResults(searchQuery)
         .catch(error => {
             extensionError("Error fetching Bandcamp artwork.", error);
             return null;
         });
 
-    hideLoadingPulse();
     if (!results) {
         return;
     }
@@ -165,27 +196,45 @@ async function searchBandcamp(searchQuery) {
         artworkUrl: `https://f4.bcbits.com/img/${album.type}${album.art_id}_10.jpg`,
         artistUrl: album.item_url_root,
         albumUrl: album.item_url_path,
-        id: `${album.id}`
+        id: `bc-${album.id}`,
+        source: artworkSource,
+    }));
+}
+
+async function searchDeezer(searchQuery) {
+    extensionLog(`Searching Deezer for artwork with query: ${searchQuery}`);
+    
+    const artworkSource = constants.artworkSourceOptions.find(source => source.name === 'Deezer');
+    const results = await fetchDeezerResults(searchQuery)
+        .catch(error => {
+            extensionError("Error fetching Deezer artwork.", error);
+            return null;
+        });
+
+    if (!results) {
+        return;
+    }
+
+    return results.map(album => ({
+        artist: album.artist.name,
+        album: album.title,
+        releaseDate: null,
+        trackCount: album.nb_tracks,
+        artworkUrl: album.cover_xl,
+        artistUrl: album.artist.link,
+        albumUrl: album.link,
+        id: `dz-${album.id}`,
+        source: artworkSource,
     }));
 }
 
 function displayResults() {
-    if (!results.length) {
-        if (!searchInputElement.value?.trim()?.length) {
-            clearMessageContainer();
-        } else {
-            showMessage(`No results found for the given search terms. Try another artwork source. Or, <a href="${constants.googleImagesSearchUrl + searchInputElement.value}" target="_blank">here's a quick link</a> to search on Google Images. If you find something there, hit <strong>Copy image address</strong> and paste it in the box above, we'll auto-fetch and attach it for you!`, 'info');
-        }
-    } else {
-        showMessage(`Displaying ${results.length} result${results.length == 1 ? '' : 's'} from ${sourceSelectElement.value}.`, 'info');
-    }
-
     let resultsHTML = '';
     for (const result of results) {
-        let subTitle = '';
-        if (result.releaseDate && result.trackCount) {
-            subTitle = `<div class="lfmmaf-result-subtitle-text">${moment(result.releaseDate).format("D MMM YYYY")} · ${result.trackCount} track${result.trackCount == 1 ? '' : 's'}</div>`;
-        }
+        const releaseDateText = result.releaseDate ? moment(result.releaseDate).format("D MMM YYYY") : '';
+        const trackCountText = result.trackCount ? `${result.trackCount} track${result.trackCount == 1 ? '' : 's'}` : '';
+        const subTitle = `<div class="lfmmaf-result-subtitle-text">${ [releaseDateText, trackCountText].filter(x => x.length).join(' · ') }&nbsp;</div>`;
+
         resultsHTML += `
             <div class="lffmaf-result-entry">
                 <img 
@@ -197,10 +246,11 @@ function displayResults() {
                 </button>
                 <div class="lffmaf-result-info">
                     <div class="lfmmaf-result-title-text">
-                        <a href="${result.albumUrl}" target="_blank" title="Open ${result.album} in ${sourceSelectElement.value}" class="lfmmaf-link">${result.album}</a>
+                        <a tabindex="-1" href="${result.albumUrl}" target="_blank" title="Open ${result.album} in ${sourceSelectElement.value}" class="lfmmaf-link">${result.album}</a>
+                        <img src="${result.source.iconUrl}" title="Source: ${result.source.name}" class="lfmmaf-source-icon">
                     </div>
                     <div>
-                        <a href="${result.artistUrl}" target="_blank" title="Open ${result.artist} in ${sourceSelectElement.value}" class="lfmmaf-link">${result.artist}</a>
+                        <a tabindex="-1" href="${result.artistUrl}" target="_blank" title="Open ${result.artist} in ${sourceSelectElement.value}" class="lfmmaf-link">${result.artist}</a>
                     </div>
                     ${subTitle}
                 </div>
@@ -208,6 +258,8 @@ function displayResults() {
         `;
     }
     resultsContainer.innerHTML = resultsHTML;
+
+    document.querySelector('.lfmmaf-upload-button')?.focus();
 }
 
 async function executeSearchAndDisplayResults() {
@@ -223,7 +275,13 @@ async function executeSearchAndDisplayResults() {
         return;
     }
 
-    results = await searchForArtwork();
+    const searchQuery = searchInputElement.value?.trim() ?? '';
+    if (!searchQuery.length) {
+        results = [];
+    } else {
+        results = await searchForArtwork(searchQuery);
+    }
+
     if (!results) {
         showMessage(`Failed to fetch artwork from ${sourceSelectElement.value}. Please try again.`, 'danger');
         return;
@@ -241,7 +299,7 @@ function listenForNewSearches() {
 
         debounceTimeout = setTimeout(async () => {
             await executeSearchAndDisplayResults();
-        }, 1000);
+        }, 1250);
     });
 }
 
@@ -304,6 +362,8 @@ async function selectArtworkByAlbumId(albumId, clickedElement) {
             const releasedDateText = selectedResult.releaseDate ? `, released ${moment(selectedResult.releaseDate).format("D MMM YYYY")}` : '';
             lastfmDescriptionElement.value = `Artwork for ${selectedResult.album} by ${selectedResult.artist}${releasedDateText}.`
         }
+        
+        scrollAndFocusUploadButton();
     } catch (e) {
         extensionError("Error while fetching or attaching image.", e)
         showMessage("There was an issue downloading and/or attaching the image to Last.fm. Please try again.", 'danger')
@@ -380,6 +440,9 @@ async function fetchAndPopulateImageFromLink() {
                 </button>
             </div> 
         `;
+
+        scrollAndFocusUploadButton();
+
         showMessage(`Successfully fetched and attached ${extension?.toUpperCase()} image from provided URL.`, 'success');
     } catch (e) {
         extensionError("Error while fetching or attaching image.", e)
@@ -420,6 +483,29 @@ async function fetchBandcampResults(searchQuery) {
       }
     );
   });
+}
+
+async function fetchDeezerResults(searchQuery) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({ action: "fetchDeezer", searchQuery },
+      (response) => {
+        if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+        } else if (response && response.success) {
+            resolve(response.results);
+        } else {
+            reject(response?.error || "Unknown error");
+        }
+      }
+    );
+  });
+}
+
+function scrollAndFocusUploadButton() {
+    const uploadButtonContainer = document.querySelector('.form-submit');
+    lastfmUploadButton.firstElementChild.innerText = 'Upload Image (↩)';
+    document.addEventListener("scrollend", () => lastfmUploadButton.focus(), { once: true });
+    setTimeout(() => uploadButtonContainer.scrollIntoView({ behavior: 'smooth', block: 'end' }), 500)
 }
 
 function showLoadingPulse() {

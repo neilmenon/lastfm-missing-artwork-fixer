@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Last.fm Missing Artwork Fixer",
-    "version": "1.1.1",
+    "version": "1.2.0",
     "description": "Easily identify albums with missing artwork on Last.fm and quickly fix them with an embedded artwork finder.",
     "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApnx4DVz8ZDpVWMDue0ScQGgqZ3WbNfNDOXUf6SNQM9aOJ77peioDqNt/TUlSAOmoEr4XGj2+gGPlwQYP40nv03723IpCrz+x2gMvlpnjkld46LBo7z1RtWYoR/LhABoWLIaY1/OWV2MmH4Qk2Ssuxq+s8UBq/XhXFHrvN2sVsHqa5UOafiRj1vEFpPO2hLEyUQ2lmhzeClGQXS1bzkISAajJ1LjoYkvThEeJS6NjRNg4KT0gr1cUVdpJVI7JVhGpulxmKbRffxOVnBNLUlcdecng6mm83Zw/XFPWgQmOhvIVIptkl7Mce9cfVEqVM5tAQiS4xqaCgptMx0rIUPKyXQIDAQAB",
     "icons": {
@@ -15,7 +15,8 @@
     ],
     "host_permissions":[
         "https://*.bcbits.com/*",
-        "https://*.bandcamp.com/*"
+        "https://*.bandcamp.com/*",
+        "https://api.deezer.com/*"
     ],
     "action": {
         "default_popup": "html/popup.html"

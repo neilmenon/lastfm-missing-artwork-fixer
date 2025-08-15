@@ -76,6 +76,10 @@ async function missingArtworkIdentifier() {
                             buttonElement.firstElementChild.src = 'https://www.last.fm/static/images/icons/accept_fff_16.png';
                             buttonElement.classList.add('lfmmaf-selected');
                         }
+
+                        if (settings.autoFocusNextMissingArtworkButton) {
+                            focusNextMissingArtworkButton();
+                        }
                     }
                     
                     if (uploadTab.closed || isOnUploadedImagePage) {
@@ -86,6 +90,17 @@ async function missingArtworkIdentifier() {
             }, 2000);
         }
     }, true);
+}
+
+function focusNextMissingArtworkButton() {
+    const missingArtworkButtons = Array.from(document.querySelectorAll('.lfmmaf-missing-artwork-button'));
+    const indexofLastSelectedButton = missingArtworkButtons.findLastIndex(button => button.classList.contains('lfmmaf-selected'));
+    const nextMissingArtworkButton = missingArtworkButtons.at(indexofLastSelectedButton + 1)
+
+    if (nextMissingArtworkButton) {
+        document.addEventListener("scrollend", () => nextMissingArtworkButton.focus(), { once: true });
+        setTimeout(() => nextMissingArtworkButton.scrollIntoView({ behavior: 'smooth', block: 'center' }), 500);
+    }
 }
 
 missingArtworkIdentifier();

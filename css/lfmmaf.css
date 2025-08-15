@@ -18,7 +18,7 @@
 }
 
 #lfmmaf-artwork-source {
-    width: 60px;
+    width: 63px;
 }
 
 #lfmmaf-artwork-source > option > img {
@@ -42,7 +42,7 @@
 #lfmmaf-messages-container {
     margin-top: 1rem;
     margin: auto;
-    padding-top: 1rem;
+    padding-top: 0.5rem;
     padding-bottom: 0.5rem;
 }
 
@@ -70,6 +70,22 @@
 .lfmmaf-result-title-text {
     font-weight: 700;
     line-height: 21px;
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.lfmmaf-result-title-text > a {
+    max-width: 200px;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.lfmmaf-source-icon {
+    width: 16px;
+    height: 16px;
 }
 
 .lfmmaf-result-subtitle-text {
@@ -106,6 +122,16 @@
     width: 16px;
     height: auto;
     pointer-events: none;
+}
+
+.lfmmaf-lastfm-upload-image-button {
+    margin-bottom: 1rem;
+}
+
+.lfmmaf-upload-button:focus,
+.lfmmaf-lastfm-upload-image-button:focus,
+.lfmmaf-missing-artwork-button:focus {
+    border: 2px solid #000;
 }
 
 .lfmmaf-file-input-disabled {

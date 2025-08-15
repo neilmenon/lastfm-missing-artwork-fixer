@@ -37,6 +37,7 @@ async function initForm() {
     document.getElementById('populateDescriptionField').checked = settings.populateDescriptionField;
     document.getElementById('highlightMissingArtworks').checked = settings.highlightMissingArtworks;
     document.getElementById('autoCloseUploadTabWhenArtworkUploaded').checked = settings.autoCloseUploadTabWhenArtworkUploaded;
+    document.getElementById('autoFocusNextMissingArtworkButton').checked = settings.autoFocusNextMissingArtworkButton;
 
     const extensionThemeRadio = document.querySelector(`input[name="extensionTheme"][value="${settings.extensionTheme}"]`);
     if (extensionThemeRadio) {
@@ -58,7 +59,8 @@ async function initForm() {
             populateTitleField: document.getElementById('populateTitleField').checked,
             populateDescriptionField: document.getElementById('populateDescriptionField').checked,
             highlightMissingArtworks: document.getElementById('highlightMissingArtworks').checked,
-            autoCloseUploadTabWhenArtworkUploaded: document.getElementById('autoCloseUploadTabWhenArtworkUploaded').checked
+            autoCloseUploadTabWhenArtworkUploaded: document.getElementById('autoCloseUploadTabWhenArtworkUploaded').checked,
+            autoFocusNextMissingArtworkButton: document.getElementById('autoFocusNextMissingArtworkButton').checked
         };
 
         if (newSettings.selectedArtworkSize < 800 || newSettings.selectedArtworkSize > 10000) {

@@ -1,5 +1,5 @@
 {
-    "selectedArtworkSource": "Apple Music",
+    "selectedArtworkSource": "All Sources Combined",
     "selectedCountry": "us",
     "selectedArtworkSize": 1200,
     "populateTitleField": true,
@@ -7,5 +7,6 @@
     "userFixedArtworksCount": 0,
     "highlightMissingArtworks": true,
     "autoCloseUploadTabWhenArtworkUploaded": true,
-    "extensionTheme": "auto"
+    "extensionTheme": "auto",
+    "autoFocusNextMissingArtworkButton": true
 }

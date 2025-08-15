@@ -4,13 +4,25 @@
             "name": "Apple Music",
             "shortName": "AM",
             "searchUrl": "https://itunes.apple.com/search?&limit=25&entity=album",
-            "iconUrl": "https://itunes.apple.com/favicon.ico"
+            "iconUrl": "https://i.imgur.com/pmKOpIi.png"
         },
         {
             "name": "Bandcamp",
             "shortName": "BC",
             "searchUrl": "https://bandcamp.com/api/bcsearch_public_api/1/autocomplete_elastic",
             "iconUrl": "https://s4.bcbits.com/img/favicon/favicon-32x32.png"
+        },
+        {
+            "name": "Deezer",
+            "shortName": "DZ",
+            "searchUrl": "https://api.deezer.com/search/album?q=",
+            "iconUrl": "https://i.imgur.com/fd4LkSV.png"
+        },
+        {
+            "name": "All Sources Combined",
+            "shortName": "ALL",
+            "searchUrl": null,
+            "iconUrl": null
         }
     ],
     "googleImagesSearchUrl": "https://www.google.com/search?tbm=isch&q=",

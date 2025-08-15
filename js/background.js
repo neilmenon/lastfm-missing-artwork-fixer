@@ -40,6 +40,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             .catch(error => sendResponse({ success: false, error: error.message }));
         return true;
     }
+
+    if (request.action === "fetchDeezer") {
+        fetchDeezer(request.searchQuery)
+            .then(results => sendResponse({ success: true, results }))
+            .catch(error => sendResponse({ success: false, error: error.message }));
+        return true;
+    }
 });
 
 async function fetchBandcamp(searchQuery) {
@@ -59,6 +66,18 @@ async function fetchBandcamp(searchQuery) {
 
     const results = (await response.json());
     return results?.auto?.results ?? [];
+}
+
+async function fetchDeezer(searchQuery) {
+    const url = constants.artworkSourceOptions.find(source => source.name === 'Deezer').searchUrl;
+    const response = await fetch(`${url}${encodeURIComponent(searchQuery)}`);
+
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+
+    const results = (await response.json());
+    return results?.data ?? [];
 }
 
 async function getConstants() {

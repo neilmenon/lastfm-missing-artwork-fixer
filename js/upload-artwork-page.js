@@ -102,9 +102,6 @@ async function searchForArtwork(searchQuery) {
         "Discogs": searchDiscogs,
     }
 
-    showLoadingPulse();
-    clearMessageContainer();
-
     let results = [];
     let failedSources = [];
     if (sourceSelectElement.value === 'All Sources Combined') {
@@ -137,7 +134,6 @@ async function searchForArtwork(searchQuery) {
         }
     }
 
-    hideLoadingPulse();
     return results;
 }
 
@@ -315,12 +311,18 @@ async function executeSearchAndDisplayResults() {
         return;
     }
 
+    showLoadingPulse();
+    clearMessageContainer();
+
     const searchQuery = searchInputElement.value?.trim() ?? '';
     if (!searchQuery.length) {
         results = [];
+        clearMessageContainer();
     } else {
         results = await searchForArtwork(searchQuery);
     }
+
+    hideLoadingPulse();
 
     if (!results) {
         showMessage(`Failed to fetch artwork from ${sourceSelectElement.value}. Please try again.`, 'danger');

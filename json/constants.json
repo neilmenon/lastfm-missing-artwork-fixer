@@ -19,6 +19,12 @@
             "iconUrl": "https://i.imgur.com/fd4LkSV.png"
         },
         {
+            "name": "Discogs",
+            "shortName": "DC",
+            "searchUrl": "https://www.discogs.com/service/search-component/public/api/autocomplete?search_type=RELEASE&search=",
+            "iconUrl": "https://www.discogs.com/favicon.ico"
+        },
+        {
             "name": "All Sources Combined",
             "shortName": "ALL",
             "searchUrl": null,

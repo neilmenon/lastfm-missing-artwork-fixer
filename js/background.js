@@ -47,6 +47,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             .catch(error => sendResponse({ success: false, error: error.message }));
         return true;
     }
+
+    if (request.action === "fetchDiscogs") {
+        fetchDiscogs(request.searchQuery)
+            .then(results => sendResponse({ success: true, results }))
+            .catch(error => sendResponse({ success: false, error: error.message }));
+        return true;
+    }
+
+    if (request.action === "fetchDiscogsImageUrl") {
+        fetchFullSizeImageUrlFromDiscogsReleaseLink(request.discogsReleaseLink)
+            .then(url => sendResponse({ success: true, url }))
+            .catch(error => sendResponse({ success: false, error: error.message }));
+        return true;
+    }
 });
 
 async function fetchBandcamp(searchQuery) {
@@ -78,6 +92,31 @@ async function fetchDeezer(searchQuery) {
 
     const results = (await response.json());
     return results?.data ?? [];
+}
+
+async function fetchDiscogs(searchQuery) {
+    const url = constants.artworkSourceOptions.find(source => source.name === 'Discogs').searchUrl;
+    const response = await fetch(`${url}${encodeURIComponent(searchQuery)}`);
+
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+
+    const results = (await response.json());
+    return results?.autocomplete ?? [];
+}
+
+async function fetchFullSizeImageUrlFromDiscogsReleaseLink(discogsReleaseLink) {
+    const response = await fetch(discogsReleaseLink);
+
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+
+    const htmlText = await response.text();
+
+    const match = htmlText.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["'][^>]*>/i);
+    return match ? match[1] : null;
 }
 
 async function getConstants() {

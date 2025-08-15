@@ -13,7 +13,8 @@ let settings = {},
     lastfmFileInputElement = null,
     lastfmUploadButton = null,
     lastfmArtist = null,
-    lastfmAlbum = null
+    lastfmAlbum = null,
+    buttonFocusedOnInitialLoad = false;
 ;
 
 async function uploadArtworkPage() {
@@ -98,6 +99,7 @@ async function searchForArtwork(searchQuery) {
         "Apple Music": searchAppleMusic,
         "Bandcamp": searchBandcamp,
         "Deezer": searchDeezer,
+        "Discogs": searchDiscogs,
     }
 
     showLoadingPulse();
@@ -178,7 +180,7 @@ async function searchBandcamp(searchQuery) {
     extensionLog(`Searching Bandcamp for artwork with query: ${searchQuery}`);
 
     const artworkSource = constants.artworkSourceOptions.find(source => source.name === 'Bandcamp');
-    const results = await fetchBandcampResults(searchQuery)
+    const results = await fetchArtworkResultsFromBackgroundScript(searchQuery, 'fetchBandcamp')
         .catch(error => {
             extensionError("Error fetching Bandcamp artwork.", error);
             return null;
@@ -205,7 +207,7 @@ async function searchDeezer(searchQuery) {
     extensionLog(`Searching Deezer for artwork with query: ${searchQuery}`);
     
     const artworkSource = constants.artworkSourceOptions.find(source => source.name === 'Deezer');
-    const results = await fetchDeezerResults(searchQuery)
+    const results = await fetchArtworkResultsFromBackgroundScript(searchQuery, 'fetchDeezer')
         .catch(error => {
             extensionError("Error fetching Deezer artwork.", error);
             return null;
@@ -228,15 +230,50 @@ async function searchDeezer(searchQuery) {
     }));
 }
 
+async function searchDiscogs(searchQuery) {
+    extensionLog(`Searching Discogs for artwork with query: ${searchQuery}`);
+    
+    const artworkSource = constants.artworkSourceOptions.find(source => source.name === 'Discogs');
+    const results = await fetchArtworkResultsFromBackgroundScript(searchQuery, 'fetchDiscogs')
+        .catch(error => {
+            extensionError("Error fetching Discogs artwork.", error);
+            return null;
+        });
+
+    if (!results) {
+        return;
+    }
+
+    return results
+        .filter(album => (album?.images?.edges?.at(0)?.node?.tiny?.sourceUrl?.length ?? 0) > 0)
+        .map(album => ({
+            artist: album?.primaryArtists?.map(artist => artist.artist.name).join(', ') ?? 'Unknown Artist',
+            album: album?.title ?? 'Unknown Album',
+            releaseDate: album?.released,
+            extraInfo: `${album?.country ?? ''} • ${album?.formats?.map(format => format.name).join(', ') ?? ''}`,
+            trackCount: null,
+            artworkUrl: album?.images?.edges?.at(0)?.node?.tiny?.sourceUrl,
+            artistUrl: `https://www.discogs.com/artist/${album?.primaryArtists?.at(0)?.artist.discogsId ?? ''}`,
+            albumUrl: `https://www.discogs.com${album?.siteUrl}`,
+            id: `dc-${album.discogsId}`,
+            source: artworkSource,
+    }));
+}
+
 function displayResults() {
     let resultsHTML = '';
     for (const result of results) {
-        const releaseDateText = result.releaseDate ? moment(result.releaseDate).format("D MMM YYYY") : '';
+        const releaseDateMoment = moment(result.releaseDate);
+        const releaseDateText = result.releaseDate && releaseDateMoment.isValid() ? (result.releaseDate.length === 4 ? result.releaseDate : releaseDateMoment.format("D MMM YYYY")) : '';
         const trackCountText = result.trackCount ? `${result.trackCount} track${result.trackCount == 1 ? '' : 's'}` : '';
-        const subTitle = `<div class="lfmmaf-result-subtitle-text">${ [releaseDateText, trackCountText].filter(x => x.length).join(' · ') }&nbsp;</div>`;
+        const extraInfoText = result.extraInfo ?? '';
+        const subTitle = `<div class="lfmmaf-result-subtitle-text">${ [releaseDateText, trackCountText, extraInfoText].filter(x => x.length).join(' • ') }&nbsp;</div>`;
+
+        const fullSizeDiscogsMessage = result.source.name === 'Discogs' ? `<div class="lfmmaf-discogs-fullsize-message" id="discogs-message-${result.id}">Full size image will be fetched from Discogs if this image is selected.</div>` : '';
 
         resultsHTML += `
             <div class="lffmaf-result-entry">
+                ${fullSizeDiscogsMessage}
                 <img 
                     src="${result.artworkUrl}"
                     title="Artwork for ${result.artist} - ${result.album}"
@@ -259,7 +296,10 @@ function displayResults() {
     }
     resultsContainer.innerHTML = resultsHTML;
 
-    document.querySelector('.lfmmaf-upload-button')?.focus();
+    if (!buttonFocusedOnInitialLoad) {
+        document.querySelector('.lfmmaf-upload-button')?.focus();
+        buttonFocusedOnInitialLoad = true;
+    }
 }
 
 async function executeSearchAndDisplayResults() {
@@ -321,6 +361,31 @@ async function selectArtworkByAlbumId(albumId, clickedElement) {
     extensionLog(`User selected ${selectedResult.artist} - ${selectedResult.album} for upload. Fetching external image to upload.`);
     showLoadingPulse();
 
+    if (selectedResult.source.name === 'Discogs') {
+        showMessage(`Scraping full-size image URL from Discogs release page.`, 'info');
+
+        document.getElementById(`discogs-message-${selectedResult.id}`)?.remove();
+
+        const imageElement = document.querySelector(`img[src="${selectedResult.artworkUrl}"]`);
+        imageElement.src = 'https://i.imgur.com/al6rQhx.gif';
+
+        const fullSizeImageUrl = await fetchDiscogsFullSizeImageUrl(selectedResult.albumUrl)
+            .catch(error => {
+                extensionError("Error fetching full size image from Discogs.", error);
+                return null;
+            });
+
+        if (!fullSizeImageUrl) {
+            showMessage("There was an issue fetching the full size image from Discogs. Please try again.", 'danger');
+            hideLoadingPulse();
+            return;
+        }
+
+        selectedResult.artworkUrl = fullSizeImageUrl;
+        imageElement.src = fullSizeImageUrl;
+        showMessage(`Successfully fetched full-size image URL from Discogs release page. `, 'success');
+    }
+
     try {
         const blob = await fetchImageBlob(selectedResult.artworkUrl);
         const file = new File([blob], `${selectedResult.artist} - ${selectedResult.album}.jpg`, { type: blob.type });
@@ -331,6 +396,8 @@ async function selectArtworkByAlbumId(albumId, clickedElement) {
             hideLoadingPulse();
             return;
         }
+
+        const imageDimensions = await getImageDimensionsFromBlob(blob).catch(() => null);
 
         const dataTransfer = new DataTransfer();
         dataTransfer.items.add(file);
@@ -350,7 +417,7 @@ async function selectArtworkByAlbumId(albumId, clickedElement) {
         fileInputContainer.classList.add('lfmmaf-file-input-disabled');
 
         const fileInputLabel = document.querySelector('.btn-file-label');
-        fileInputLabel.innerHTML = `File selected for upload, ${fileSizeHuman}.`
+        fileInputLabel.innerHTML = `File selected for upload, ${fileSizeHuman}${imageDimensions ? `, ${imageDimensions.width}x${imageDimensions.height}` : ''}.`
 
         if (settings.populateTitleField) {
             const lastfmTitleElement = document.getElementById('id_title');
@@ -359,7 +426,10 @@ async function selectArtworkByAlbumId(albumId, clickedElement) {
 
         if (settings.populateDescriptionField) {
             const lastfmDescriptionElement = document.getElementById('id_description');
-            const releasedDateText = selectedResult.releaseDate ? `, released ${moment(selectedResult.releaseDate).format("D MMM YYYY")}` : '';
+            const releaseDateMoment = moment(selectedResult.releaseDate);
+            const isDateValid = selectedResult.releaseDate && releaseDateMoment.isValid();
+            const releaseDate = isDateValid ? (selectedResult.releaseDate.length === 4 ? selectedResult.releaseDate : releaseDateMoment.format("D MMM YYYY")) : '';
+            const releasedDateText = isDateValid ? `, released ${releaseDate}` : '';
             lastfmDescriptionElement.value = `Artwork for ${selectedResult.album} by ${selectedResult.artist}${releasedDateText}.`
         }
         
@@ -469,9 +539,9 @@ async function fetchImageBlob(url) {
   });
 }
 
-async function fetchBandcampResults(searchQuery) {
+async function fetchArtworkResultsFromBackgroundScript(searchQuery, backgroundScriptFunction) {
   return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage({ action: "fetchBandcamp", searchQuery },
+    chrome.runtime.sendMessage({ action: backgroundScriptFunction, searchQuery },
       (response) => {
         if (chrome.runtime.lastError) {
             reject(chrome.runtime.lastError);
@@ -485,20 +555,32 @@ async function fetchBandcampResults(searchQuery) {
   });
 }
 
-async function fetchDeezerResults(searchQuery) {
+async function fetchDiscogsFullSizeImageUrl(discogsReleaseLink) {
   return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage({ action: "fetchDeezer", searchQuery },
+    chrome.runtime.sendMessage({ action: 'fetchDiscogsImageUrl', discogsReleaseLink },
       (response) => {
         if (chrome.runtime.lastError) {
             reject(chrome.runtime.lastError);
         } else if (response && response.success) {
-            resolve(response.results);
+            resolve(response.url);
         } else {
             reject(response?.error || "Unknown error");
         }
       }
     );
   });
+}
+
+async function getImageDimensionsFromBlob(blob) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            resolve({ width: img.width, height: img.height });
+            URL.revokeObjectURL(img.src); // cleanup
+        };
+        img.onerror = reject;
+        img.src = URL.createObjectURL(blob);
+    });
 }
 
 function scrollAndFocusUploadButton() {

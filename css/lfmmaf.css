@@ -52,8 +52,8 @@
 }
 
 .lffmaf-result-entry > img {
-    width: 100%;
-    height: auto;
+    width: 220px;
+    height: 220px;
     border: 0.25px solid #f1f1f1;;
 }
 
@@ -65,6 +65,17 @@
     text-overflow: ellipsis;
     overflow: hidden;
     white-space: nowrap;
+}
+
+.lfmmaf-discogs-fullsize-message {
+    position: absolute;
+    top: 90px;
+    padding: 0.5rem;
+    text-align: center;
+    background: #0000001a;
+    color: #000000;
+    font-size: 12px;
+    line-height: 13.1px;
 }
 
 .lfmmaf-result-title-text {

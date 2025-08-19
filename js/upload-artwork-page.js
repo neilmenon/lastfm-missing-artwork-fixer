@@ -186,12 +186,12 @@ async function searchBandcamp(searchQuery) {
         return;
     }
 
-    return results.map(album => ({
+    return results.filter(x => ['a', 't'].includes(x.type)).map(album => ({
         artist: album.band_name,
         album: album.name,
         releaseDate: null,
         trackCount: null,
-        artworkUrl: `https://f4.bcbits.com/img/${album.type}${album.art_id}_10.jpg`,
+        artworkUrl: `https://f4.bcbits.com/img/a${album.art_id}_10.jpg`,
         artistUrl: album.item_url_root,
         albumUrl: album.item_url_path,
         id: `bc-${album.id}`,

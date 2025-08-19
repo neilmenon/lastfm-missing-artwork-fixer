@@ -67,7 +67,7 @@ async function fetchBandcamp(searchQuery) {
     const url = constants.artworkSourceOptions.find(source => source.name === 'Bandcamp').searchUrl;
     const body = {
         search_text: searchQuery,
-        search_filter: "a",
+        search_filter: "",
         fan_id: null,
         full_page: false
     };

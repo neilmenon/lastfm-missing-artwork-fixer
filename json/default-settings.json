@@ -8,5 +8,6 @@
     "highlightMissingArtworks": true,
     "autoCloseUploadTabWhenArtworkUploaded": true,
     "extensionTheme": "auto",
-    "autoFocusNextMissingArtworkButton": true
+    "autoFocusNextMissingArtworkButton": true,
+    "autoFocusOnPageLoad": false
 }

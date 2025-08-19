@@ -90,7 +90,10 @@ async function injectArtworkWidget() {
 }
 
 function injectDefaultSearchQuery() {
-    const searchQuery = `${ lastfmArtist ?? '' } ${ lastfmAlbum ?? '' }`.trim()
+    const searchQuery = `${ lastfmArtist ?? '' } ${ lastfmAlbum ?? '' }`
+        .replaceAll('[Explicit]', '')
+        .trim()
+    ;
     searchInputElement.value = searchQuery
 }
 

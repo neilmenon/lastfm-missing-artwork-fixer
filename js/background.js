@@ -6,6 +6,17 @@ async function init() {
 
 init();
 
+chrome.runtime.onInstalled.addListener(async (details) => {
+    if (details.reason === "update") {
+        const manifest = await (await fetch(chrome.runtime.getURL('manifest.json'))).json();
+        if (details.previousVersion !== manifest.version) {
+            chrome.tabs.create({
+                url: chrome.runtime.getURL("html/update.html?from=" + details.previousVersion + "&to=" + manifest.version)
+            });
+        }
+    }
+});
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "setBadgeText") {
         chrome.action.setBadgeText({ text: request.text, tabId: sender.tab.id });

@@ -31,7 +31,7 @@
                             <i class="bi bi-gear-fill"></i>
                         </label>
                     </div>
-                    <span class="badge bg-success d-flex gap-1 align-items-center" data-bs-toggle="tooltip" title="This is the number of missing artworks you've fixed across all your devices. Thanks for helping to make Last.fm data more complete for yourself and other users!">
+                    <span class="badge bg-success d-flex gap-1 align-items-center" data-bs-toggle="tooltip" title="This is the number of missing artworks you've fixed (across all your devices if synced). Thanks for helping to make Last.fm data more complete for yourself and other users!">
                         <i class="bi bi-check-circle-fill"></i>
                         <span id="userFixedArtworksCount"></span>
                     </span>
@@ -90,6 +90,13 @@
                         <input type="checkbox" class="form-check-input" id="autoFocusNextMissingArtworkButton">
                         <label class="form-check-label" for="autoFocusNextMissingArtworkButton">Auto-focus Next Missing Artwork Button</label>
                         <span data-bs-toggle="tooltip" data-bs-placement="right" title="If you're fixing multiple missing artworks on one page, the extension will scroll to and auto-focus the next missing artwork button so you don't have to find it on the page and can simply hit the Enter (↩) button to continue fixing. This way you can fix multiple artworks completely using the keyboard.">
+                            <i class="bi bi-question-circle"></i>
+                        </span>
+                    </div>
+                    <div class="form-group form-check form-switch mb-2">
+                        <input type="checkbox" class="form-check-input" id="autoFocusOnPageLoad">
+                        <label class="form-check-label" for="autoFocusOnPageLoad">Auto-focus on Page Load</label>
+                        <span data-bs-toggle="tooltip" data-bs-placement="right" title="Auto-focus and scroll to the first missing artwork button on the page when it loads so you can hit the Enter (↩) button to start fixing.">
                             <i class="bi bi-question-circle"></i>
                         </span>
                     </div>

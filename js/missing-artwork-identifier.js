@@ -9,7 +9,7 @@ async function missingArtworkIdentifier() {
 
     const albumLinkSelector = 'a[href*="/music/"]';
 
-    setInterval(() => {
+    setInterval(async () => {
         const imageElementsMissingArtwork = document.querySelectorAll(`img[src*="${constants.missingArtworkImageId}"]:not(.lfmmaf-missing-artwork)`);
         for (const element of imageElementsMissingArtwork) {
             element.classList.add('lfmmaf-missing-artwork');
@@ -36,6 +36,10 @@ async function missingArtworkIdentifier() {
 
         if (imageElementsMissingArtwork.length) {
             extensionLog(`Found and highlighted ${imageElementsMissingArtwork.length} missing artwork entries.`);
+            if (settings.autoFocusOnPageLoad) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                focusNextMissingArtworkButton(true);
+            }
         }
 
         const totalUnfixedArtworks = document.querySelectorAll(`img[src*="${constants.missingArtworkImageId}"]`).length;
@@ -78,7 +82,7 @@ async function missingArtworkIdentifier() {
                         }
 
                         if (settings.autoFocusNextMissingArtworkButton) {
-                            focusNextMissingArtworkButton();
+                            setTimeout(() => focusNextMissingArtworkButton(), 250);
                         }
                     }
                     
@@ -93,14 +97,34 @@ async function missingArtworkIdentifier() {
 }
 
 function focusNextMissingArtworkButton() {
-    const missingArtworkButtons = Array.from(document.querySelectorAll('.lfmmaf-missing-artwork-button'));
+    const seenAlbumLinks = new Set();
+    const missingArtworkButtons = Array.from(document.querySelectorAll('.lfmmaf-missing-artwork-button')).filter(button => {
+        const albumLink = button.getAttribute('data-lfmmaf-album-link');
+        if (albumLink != null) {
+            if (seenAlbumLinks.has(albumLink)) {
+                return false;
+            }
+            seenAlbumLinks.add(albumLink);
+        }
+        return true;
+    });
     const indexofLastSelectedButton = missingArtworkButtons.findLastIndex(button => button.classList.contains('lfmmaf-selected'));
     const nextMissingArtworkButton = missingArtworkButtons.at(indexofLastSelectedButton + 1)
 
     if (nextMissingArtworkButton) {
-        document.addEventListener("scrollend", () => nextMissingArtworkButton.focus(), { once: true });
-        setTimeout(() => nextMissingArtworkButton.scrollIntoView({ behavior: 'smooth', block: 'center' }), 500);
+        const focusFunction = () => nextMissingArtworkButton.focus();
+        document.addEventListener('scrollend', focusFunction, { once: true });
+        const currentY = window.scrollY;
+        setTimeout(() => {
+            if (window.scrollY === currentY) {
+                focusFunction();
+                removeEventListener('scrollend', focusFunction);
+            }
+        }, 250);
+        setTimeout(() => nextMissingArtworkButton.scrollIntoView({ behavior: 'smooth', block: 'center' }), 10);
+        return true;
     }
+    return false;
 }
 
 missingArtworkIdentifier();

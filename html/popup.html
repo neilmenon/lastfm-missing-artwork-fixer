@@ -35,6 +35,10 @@
                         <i class="bi bi-check-circle-fill"></i>
                         <span id="userFixedArtworksCount"></span>
                     </span>
+                    <button class="btn btn-primary btn-sm" id="openAllMissingArtworks" data-bs-toggle="tooltip" title="Open all missing artworks from the current page in separate tabs" style="display: none;">
+                        <i class="bi bi-box-arrow-up-right"></i>
+                        <span id="openAllCount">0</span>
+                    </button>
                 </div>
             </div>
             <div class="card-body">
@@ -101,6 +105,13 @@
                         </span>
                     </div>
                     <div class="btn btn-primary w-100" id="saveSettingsButton">Save settings</div>
+                    <div class="mt-3 text-center">
+                        <button class="btn btn-warning w-100 mb-2" id="openAllMissingArtworksMain">
+                            <i class="bi bi-box-arrow-up-right"></i>
+                            Open All Missing Artworks (<span id="missingArtworkCountMain">0</span>)
+                        </button>
+                        <small class="text-muted d-block">Found <span id="missingArtworkCount">0</span> missing artwork(s) on current page</small>
+                    </div>
                 </form>
                 <hr class="my-1">
                 <div class="d-flex gap-2 align-items-center fs-3 justify-content-center">

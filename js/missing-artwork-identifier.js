@@ -8,9 +8,25 @@ async function missingArtworkIdentifier() {
     }
 
     const albumLinkSelector = 'a[href*="/music/"]';
+    
+    // Store interval ID for cleanup
+    let scanInterval;
+    
+    // Cleanup function
+    const cleanup = () => {
+        if (scanInterval) {
+            clearInterval(scanInterval);
+            scanInterval = null;
+            extensionLog("Missing artwork scanner interval cleared");
+        }
+    };
+    
+    // Clean up when page is unloaded
+    window.addEventListener('beforeunload', cleanup);
+    window.addEventListener('pagehide', cleanup);
 
-    setInterval(async () => {
-        const imageElementsMissingArtwork = document.querySelectorAll(`img[src*="${constants.missingArtworkImageId}"]:not(.lfmmaf-missing-artwork)`);
+    scanInterval = setInterval(async () => {
+        const imageElementsMissingArtwork = document.querySelectorAll(`img[src*="${constants.missingArtworkImageId}"]:not(.lfmmaf-missing-artwork), img[src*="${constants.noLastfmAlbumExistsImageId}"]:not(.lfmmaf-missing-artwork)`);
         for (const element of imageElementsMissingArtwork) {
             element.classList.add('lfmmaf-missing-artwork');
 
@@ -20,14 +36,18 @@ async function missingArtworkIdentifier() {
                 ?? element.parentElement?.parentElement?.parentElement?.querySelector(albumLinkSelector)
             ;
 
-            if (!albumLink) {
-                extensionError("Unable to find album link for missing artwork image!", element);
+            // If no album link found, try to get the current page URL for track pages
+            const linkToUse = albumLink?.href || window.location.href;
+            
+            if (!linkToUse || !linkToUse.includes('/music/')) {
+                extensionError("Unable to find valid music link for missing artwork image!", element);
+                continue;
             }
 
             const missingArtworkAddButtonElement = document.createElement('div');
             missingArtworkAddButtonElement.innerHTML = `
-                <button class="lfmmaf-missing-artwork-button${element.width < 75 ? ' lfmmaf-btn-small' : ''}" title="Fix this missing artwork" data-lfmmaf-album-link="${albumLink}">
-                    <img src="https://www.last.fm/static/images/icons/add_fff_16.png">
+                <button class="lfmmaf-missing-artwork-button${element.width < 75 ? ' lfmmaf-btn-small' : ''}" title="Fix this missing artwork" data-lfmmaf-album-link="${linkToUse}">
+                    <img src="${constants.lastfmIconUrls.add}">
                 </button>
             `
 
@@ -42,9 +62,26 @@ async function missingArtworkIdentifier() {
             }
         }
 
-        const totalUnfixedArtworks = document.querySelectorAll(`img[src*="${constants.missingArtworkImageId}"]`).length;
+        // Store missing artwork URLs for bulk opening
+        const missingArtworkUrls = [];
+        document.querySelectorAll('.lfmmaf-missing-artwork-button').forEach(button => {
+            const albumLink = button.dataset?.lfmmafAlbumLink;
+            if (albumLink) {
+                // For track URLs with /_/, convert to album URL format for upload
+                const uploadUrl = albumLink.includes('/_/') 
+                    ? albumLink.replace('/_/', '/') + '/+images/upload'
+                    : albumLink + '/+images/upload';
+                if (!missingArtworkUrls.includes(uploadUrl)) {
+                    missingArtworkUrls.push(uploadUrl);
+                }
+            }
+        });
+        
+        // Use deduplicated count for badge and title
+        const totalUnfixedArtworks = missingArtworkUrls.length;
         chrome.runtime.sendMessage({ action: "setBadgeText", text: `${totalUnfixedArtworks}` });
         chrome.runtime.sendMessage({ action: "setTitle", text: `${totalUnfixedArtworks} missing artwork(s) on this page.` });
+        chrome.runtime.sendMessage({ action: "updateMissingArtworkUrls", urls: missingArtworkUrls });
     }, 1000);
 
     document.addEventListener('click', (event) => {
@@ -54,12 +91,10 @@ async function missingArtworkIdentifier() {
             event.stopPropagation();
             const clickedButtonAlbumLink = event.target?.dataset?.lfmmafAlbumLink;
             extensionLog(`User clicked add button on missing artwork image with URL: ${clickedButtonAlbumLink}`);
-            const imageUploadLink = clickedButtonAlbumLink + (clickedButtonAlbumLink.includes('/_/') ? '' : '/+images/upload');
+            const imageUploadLink = clickedButtonAlbumLink.includes('/_/') 
+                ? clickedButtonAlbumLink.replace('/_/', '/') + '/+images/upload'
+                : clickedButtonAlbumLink + '/+images/upload';
             const uploadTab = window.open(imageUploadLink, '_blank');
-
-            if (clickedButtonAlbumLink.includes('/_/')) {
-                return;
-            }
 
             const checkInterval = setInterval(() => {
                 extensionLog(`Polling for new tab ${imageUploadLink} image upload and/or closure.`)
@@ -75,9 +110,9 @@ async function missingArtworkIdentifier() {
 
                         const buttonElementsMatchingThisAlbum = document.querySelectorAll(`.lfmmaf-missing-artwork-button[data-lfmmaf-album-link="${clickedButtonAlbumLink}"]`);
                         for (const buttonElement of buttonElementsMatchingThisAlbum) {
-                            buttonElement.parentElement.previousElementSibling.src = `https://lastfm.freetls.fastly.net/i/u/300x300/${imageIDUploaded}.jpg`;
+                            buttonElement.parentElement.previousElementSibling.src = `${constants.lastfmCdnUrl}${imageIDUploaded}.jpg`;
                             buttonElement.parentElement.previousElementSibling.classList.add('lfmmaf-missing-artwork-fixed');
-                            buttonElement.firstElementChild.src = 'https://www.last.fm/static/images/icons/accept_fff_16.png';
+                            buttonElement.firstElementChild.src = constants.lastfmIconUrls.accept;
                             buttonElement.classList.add('lfmmaf-selected');
                         }
 

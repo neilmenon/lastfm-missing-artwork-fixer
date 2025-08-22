@@ -1,5 +1,3 @@
-
-
 let settings = {},
     constants = {},
     chooseFileContainer = null,
@@ -14,8 +12,8 @@ let settings = {},
     lastfmUploadButton = null,
     lastfmArtist = null,
     lastfmAlbum = null,
-    buttonFocusedOnInitialLoad = false;
-;
+    buttonFocusedOnInitialLoad = false,
+    countingInitialized = false; // Global flag to prevent multiple counting setups
 
 async function uploadArtworkPage() {
     settings = await getSettings();
@@ -46,6 +44,10 @@ async function injectArtworkWidget() {
     widget.innerHTML = htmlText;
     widget.querySelector('img.lfmmaf-extension-icon').src = chrome.runtime.getURL('icons/icon16.png');
 
+    if (!chooseFileContainer || !chooseFileContainer.parentElement) {
+        extensionError("Cannot inject artwork widget: chooseFileContainer or its parent not found");
+        return;
+    }
     chooseFileContainer.parentElement.insertBefore(widget, chooseFileContainer);
 
     searchInputElement = document.getElementById('lfmmaf-artwork-search');
@@ -83,10 +85,11 @@ async function injectArtworkWidget() {
         await executeSearchAndDisplayResults();
     });
 
-    lastfmUploadButton.addEventListener('click', () => {
-        settings = { ...settings, userFixedArtworksCount: settings.userFixedArtworksCount + 1 }
-        saveSettings(settings);
-    });
+    // Initialize counting logic only once globally
+    initializeUploadCounting();
+    
+    // Add auto-close functionality after successful submission
+    initializeAutoCloseOnSubmit();
 }
 
 function injectDefaultSearchQuery() {
@@ -161,16 +164,29 @@ async function searchAppleMusic(searchQuery) {
     }
 
     const resultText = await response.text();
-    const results = JSON.parse(resultText)?.results ?? [];
-    return results.map(album => ({
-        artist: album.artistName,
-        album: album.collectionName,
-        releaseDate: album.releaseDate,
-        trackCount: album.trackCount,
-        artworkUrl: album.artworkUrl100.replace("100x100bb", `${settings.selectedArtworkSize}x${settings.selectedArtworkSize}bb`),
-        artistUrl: album.artistViewUrl,
-        albumUrl: album.collectionViewUrl,
-        id: `am-${album.collectionId}`,
+    let parsedData;
+    try {
+        parsedData = JSON.parse(resultText);
+    } catch (error) {
+        extensionError("Failed to parse Apple Music API response", error);
+        return [];
+    }
+    
+    const results = parsedData?.results ?? [];
+    if (!Array.isArray(results)) {
+        extensionError("Apple Music API returned invalid results format", parsedData);
+        return [];
+    }
+    
+    return results.filter(album => album && album.artistName && album.collectionName).map(album => ({
+        artist: album.artistName || 'Unknown Artist',
+        album: album.collectionName || 'Unknown Album',
+        releaseDate: album.releaseDate || null,
+        trackCount: album.trackCount || null,
+        artworkUrl: album.artworkUrl100 ? album.artworkUrl100.replace("100x100bb", `${settings.selectedArtworkSize}x${settings.selectedArtworkSize}bb`) : null,
+        artistUrl: album.artistViewUrl || null,
+        albumUrl: album.collectionViewUrl || null,
+        id: `am-${album.collectionId || Math.random().toString(36).substr(2, 9)}`,
         source: artworkSource,
     }))
 }
@@ -189,15 +205,20 @@ async function searchBandcamp(searchQuery) {
         return;
     }
 
-    return results.filter(x => ['a', 't'].includes(x.type)).map(album => ({
-        artist: album.band_name,
-        album: album.name,
+    if (!Array.isArray(results)) {
+        extensionError("Bandcamp API returned invalid results format", results);
+        return [];
+    }
+    
+    return results.filter(x => x && ['a', 't'].includes(x.type) && x.band_name && x.name).map(album => ({
+        artist: album.band_name || 'Unknown Artist',
+        album: album.name || 'Unknown Album',
         releaseDate: null,
         trackCount: null,
-        artworkUrl: `https://f4.bcbits.com/img/a${album.art_id}_10.jpg`,
-        artistUrl: album.item_url_root,
-        albumUrl: album.item_url_path,
-        id: `bc-${album.id}`,
+        artworkUrl: album.art_id ? `${constants.bandcampImageUrl}${album.art_id}_10.jpg` : null,
+        artistUrl: album.item_url_root || null,
+        albumUrl: album.item_url_path || null,
+        id: `bc-${album.id || Math.random().toString(36).substr(2, 9)}`,
         source: artworkSource,
     }));
 }
@@ -216,15 +237,20 @@ async function searchDeezer(searchQuery) {
         return;
     }
 
-    return results.map(album => ({
-        artist: album.artist.name,
-        album: album.title,
+    if (!Array.isArray(results)) {
+        extensionError("Deezer API returned invalid results format", results);
+        return [];
+    }
+
+    return results.filter(album => album && album.artist && album.title).map(album => ({
+        artist: album.artist?.name || 'Unknown Artist',
+        album: album.title || 'Unknown Album',
         releaseDate: null,
-        trackCount: album.nb_tracks,
-        artworkUrl: album.cover_xl,
-        artistUrl: album.artist.link,
-        albumUrl: album.link,
-        id: `dz-${album.id}`,
+        trackCount: album.nb_tracks || null,
+        artworkUrl: album.cover_xl || null,
+        artistUrl: album.artist?.link || null,
+        albumUrl: album.link || null,
+        id: `dz-${album.id || Math.random().toString(36).substr(2, 9)}`,
         source: artworkSource,
     }));
 }
@@ -243,18 +269,23 @@ async function searchDiscogs(searchQuery) {
         return;
     }
 
+    if (!Array.isArray(results)) {
+        extensionError("Discogs API returned invalid results format", results);
+        return [];
+    }
+
     return results
-        .filter(album => (album?.images?.edges?.at(0)?.node?.tiny?.sourceUrl?.length ?? 0) > 0)
+        .filter(album => album && (album?.images?.edges?.at(0)?.node?.tiny?.sourceUrl?.length ?? 0) > 0)
         .map(album => ({
-            artist: album?.primaryArtists?.map(artist => artist.artist.name).join(', ') ?? 'Unknown Artist',
-            album: album?.title ?? 'Unknown Album',
-            releaseDate: album?.released,
-            extraInfo: `${album?.country ?? ''} • ${album?.formats?.map(format => format.name).join(', ') ?? ''}`,
+            artist: album?.primaryArtists?.map(artist => artist?.artist?.name).filter(Boolean).join(', ') || 'Unknown Artist',
+            album: album?.title || 'Unknown Album',
+            releaseDate: album?.released || null,
+            extraInfo: `${album?.country || ''} • ${album?.formats?.map(format => format?.name).filter(Boolean).join(', ') || ''}`,
             trackCount: null,
-            artworkUrl: album?.images?.edges?.at(0)?.node?.tiny?.sourceUrl,
-            artistUrl: `https://www.discogs.com/artist/${album?.primaryArtists?.at(0)?.artist.discogsId ?? ''}`,
-            albumUrl: `https://www.discogs.com${album?.siteUrl}`,
-            id: `dc-${album.discogsId}`,
+            artworkUrl: album?.images?.edges?.at(0)?.node?.tiny?.sourceUrl || null,
+            artistUrl: album?.primaryArtists?.at(0)?.artist?.discogsId ? `https://www.discogs.com/artist/${album.primaryArtists.at(0).artist.discogsId}` : null,
+            albumUrl: album?.siteUrl ? `https://www.discogs.com${album.siteUrl}` : null,
+            id: `dc-${album?.discogsId || Math.random().toString(36).substr(2, 9)}`,
             source: artworkSource,
     }));
 }
@@ -278,7 +309,7 @@ function displayResults() {
                     title="Artwork for ${result.artist} - ${result.album}"
                 >
                 <button class="lfmmaf-upload-button" title="Select this artwork to upload" data-lfmmaf-album-id="${result.id}">
-                    <img src="https://www.last.fm/static/images/icons/add_fff_16.png">
+                    <img src="${constants.lastfmIconUrls.add}">
                 </button>
                 <div class="lffmaf-result-info">
                     <div class="lfmmaf-result-title-text">
@@ -372,7 +403,7 @@ async function selectArtworkByAlbumId(albumId, clickedElement) {
         document.getElementById(`discogs-message-${selectedResult.id}`)?.remove();
 
         const imageElement = document.querySelector(`img[src="${selectedResult.artworkUrl}"]`);
-        imageElement.src = 'https://i.imgur.com/al6rQhx.gif';
+        imageElement.src = constants.loadingGifUrl;
 
         const fullSizeImageUrl = await fetchDiscogsFullSizeImageUrl(selectedResult.albumUrl)
             .catch(error => {
@@ -412,10 +443,10 @@ async function selectArtworkByAlbumId(albumId, clickedElement) {
 
         const previouslySelectedItems = document.querySelectorAll('.lfmmaf-selected');
         for (const element of previouslySelectedItems) {
-            element.firstElementChild.src = 'https://www.last.fm/static/images/icons/add_fff_16.png';
+            element.firstElementChild.src = constants.lastfmIconUrls.add;
             element.classList.remove('lfmmaf-selected');
         }
-        clickedElement.firstElementChild.src = 'https://www.last.fm/static/images/icons/accept_fff_16.png';
+        clickedElement.firstElementChild.src = constants.lastfmIconUrls.accept;
         clickedElement.classList.add('lfmmaf-selected');
 
         const fileInputContainer = lastfmFileInputElement.closest('.btn-file');
@@ -511,7 +542,7 @@ async function fetchAndPopulateImageFromLink() {
                     title="Artwork for ${lastfmArtist} - ${lastfmAlbum}"
                 >
                 <button class="lfmmaf-upload-button lfmmaf-selected" title="Select this artwork to upload">
-                    <img src="https://www.last.fm/static/images/icons/accept_fff_16.png">
+                    <img src="${constants.lastfmIconUrls.accept}">
                 </button>
             </div> 
         `;
@@ -644,7 +675,131 @@ async function saveSettings(newSettings) {
     );
 }
 
-setInterval(() => {
+function initializeUploadCounting() {
+    // Use a more robust initialization check with timestamp
+    const initKey = 'lfmmafCountingInitialized';
+    const now = Date.now();
+    const lastInit = window[initKey];
+    
+    // Prevent multiple initializations within 5 seconds
+    if (lastInit && (now - lastInit) < 5000) {
+        extensionLog('Upload counting recently initialized, skipping.');
+        return;
+    }
+    
+    window[initKey] = now;
+    extensionLog('Initializing upload counting with timestamp:', now);
+    
+    const currentPageUrl = window.location.href;
+    
+    // Check if we're already on a successful upload page when script loads
+    if (currentPageUrl.includes('/+images/') && !currentPageUrl.includes('/upload')) {
+        const imageId = currentPageUrl.split('/').pop();
+        if (imageId && !hasBeenCounted(imageId)) {
+            setTimeout(() => incrementFixedArtworksCounter(imageId), 100);
+        }
+    }
+    
+    // Monitor for navigation to successful upload pages (only once globally)
+    const observer = new MutationObserver(() => {
+        const newUrl = window.location.href;
+        if (newUrl.includes('/+images/') && !newUrl.includes('/upload')) {
+            const imageId = newUrl.split('/').pop();
+            if (imageId && !hasBeenCounted(imageId)) {
+                setTimeout(() => incrementFixedArtworksCounter(imageId), 100);
+            }
+        }
+    });
+    
+    observer.observe(document, { childList: true, subtree: true });
+    
+    // Also monitor for popstate events (only once globally)
+    window.addEventListener('popstate', () => {
+        const newUrl = window.location.href;
+        if (newUrl.includes('/+images/') && !newUrl.includes('/upload')) {
+            const imageId = newUrl.split('/').pop();
+            if (imageId && !hasBeenCounted(imageId)) {
+                setTimeout(() => incrementFixedArtworksCounter(imageId), 100);
+            }
+        }
+    });
+}
+
+function incrementFixedArtworksCounter(imageId) {
+    // Use a more robust locking mechanism with timeout
+    const lockKey = 'lfmmafCountingLock';
+    const lockTimeout = 10000; // 10 seconds timeout
+    const now = Date.now();
+    const currentLock = window[lockKey];
+    
+    // Check if lock exists and hasn't timed out
+    if (currentLock && (now - currentLock) < lockTimeout) {
+        extensionLog(`Counting locked, skipping increment for ${imageId}`);
+        return;
+    }
+    
+    // Set lock with timestamp
+    window[lockKey] = now;
+    
+    // Double-check to prevent race conditions
+    if (hasBeenCounted(imageId)) {
+        extensionLog(`Image ${imageId} already counted, skipping.`);
+        delete window[lockKey];
+        return;
+    }
+    
+    // Store the image ID to prevent double counting
+    markAsCounted(imageId);
+    
+    // Get fresh settings to avoid stale data
+    getSettings().then(freshSettings => {
+        const newCount = freshSettings.userFixedArtworksCount + 1;
+        const updatedSettings = { ...freshSettings, userFixedArtworksCount: newCount };
+        saveSettings(updatedSettings).then(() => {
+            settings = updatedSettings; // Update local copy
+            extensionLog(`Incremented fixed artworks counter for image ID: ${imageId}. New count: ${newCount}`);
+            delete window[lockKey]; // Clear lock
+        }).catch(error => {
+            extensionError('Failed to save settings after incrementing counter:', error);
+            delete window[lockKey]; // Clear lock even on error
+        });
+    });
+}
+
+function hasBeenCounted(imageId) {
+    const countedImages = JSON.parse(localStorage.getItem('lfmmaf-counted-images') || '[]');
+    return countedImages.includes(imageId);
+}
+
+function markAsCounted(imageId) {
+    const countedImages = JSON.parse(localStorage.getItem('lfmmaf-counted-images') || '[]');
+    if (!countedImages.includes(imageId)) {
+        countedImages.push(imageId);
+        // Keep only last 1000 entries to prevent localStorage bloat
+        if (countedImages.length > 1000) {
+            countedImages.splice(0, countedImages.length - 1000);
+        }
+        localStorage.setItem('lfmmaf-counted-images', JSON.stringify(countedImages));
+    }
+}
+
+// Store interval ID for cleanup
+let pageCheckInterval;
+
+// Cleanup function
+const cleanup = () => {
+    if (pageCheckInterval) {
+        clearInterval(pageCheckInterval);
+        pageCheckInterval = null;
+        extensionLog("Page check interval cleared");
+    }
+};
+
+// Clean up when page is unloaded
+window.addEventListener('beforeunload', cleanup);
+window.addEventListener('pagehide', cleanup);
+
+pageCheckInterval = setInterval(() => {
     chooseFileContainer = document.querySelector('.form-group--image');
     artworkWidgetContainer = document.getElementById('lfmmaf-widget');
     lastfmArtist = document.querySelector("span[itemprop=byArtist] span[itemprop=name]")?.textContent?.trim();
@@ -659,3 +814,42 @@ setInterval(() => {
         uploadArtworkPage();
     }
 }, 1000);
+
+function initializeAutoCloseOnSubmit() {
+    // Monitor for successful form submission and redirect
+    const observer = new MutationObserver(() => {
+        const currentUrl = window.location.href;
+        
+        // Check if we've been redirected to a successful upload page
+        if (currentUrl.includes('/+images/') && !currentUrl.includes('/upload')) {
+            extensionLog('Successful upload detected, closing tab in 2 seconds...');
+            
+            // Close the tab after a short delay to allow user to see success
+            setTimeout(() => {
+                window.close();
+            }, 2000);
+            
+            // Stop observing once we detect success
+            observer.disconnect();
+        }
+    });
+    
+    // Start observing for URL changes
+    observer.observe(document, { childList: true, subtree: true });
+    
+    // Also listen for popstate events (back/forward navigation)
+    window.addEventListener('popstate', () => {
+        const currentUrl = window.location.href;
+        if (currentUrl.includes('/+images/') && !currentUrl.includes('/upload')) {
+            extensionLog('Successful upload detected via navigation, closing tab in 2 seconds...');
+            setTimeout(() => {
+                window.close();
+            }, 2000);
+        }
+    });
+    
+    // Clean up observer when page unloads
+    window.addEventListener('beforeunload', () => {
+        observer.disconnect();
+    });
+}

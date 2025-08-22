@@ -45,6 +45,17 @@ async function missingArtworkIdentifier() {
                 continue;
             }
 
+            // Enhanced check for /_/ URLs to see if artwork already exists elsewhere
+            const isUnknownAlbumUrl = linkToUse.includes('/_/');
+            if (isUnknownAlbumUrl) {
+                const artworkCheck = await checkExistingArtworkForUnknownAlbum(linkToUse);
+                if (artworkCheck.hasExistingArtwork) {
+                    // Skip this element - artwork already exists for this track
+                    console.log(`Skipping /_/ URL ${linkToUse} - artwork exists at ${artworkCheck.trackUrl}`);
+                    continue;
+                }
+            }
+
             const missingArtworkAddButtonElement = document.createElement('div');
             missingArtworkAddButtonElement.innerHTML = `
                 <button class="lfmmaf-missing-artwork-button${element.width < 75 ? ' lfmmaf-btn-small' : ''}" title="Fix this missing artwork" data-lfmmaf-album-link="${linkToUse}">
@@ -75,8 +86,8 @@ async function missingArtworkIdentifier() {
                     return; // Skip this URL
                 }
                 
-                // For track URLs with /_/, convert to album URL format for upload
-                const uploadUrl = isUnknownAlbumUrl 
+                // For track URLs with /_/, convert to album URL format for upload only if setting is enabled
+                const uploadUrl = (isUnknownAlbumUrl && settings.includeUnknownAlbumUrls)
                     ? albumLink.replace('/_/', '/') + '/+images/upload'
                     : albumLink + '/+images/upload';
                 if (!missingArtworkUrls.includes(uploadUrl)) {
@@ -199,6 +210,75 @@ async function getSettings() {
 
 async function getConstants() {
     return await (await fetch(chrome.runtime.getURL('json/constants.json'))).json();
+}
+
+async function checkExistingArtworkForUnknownAlbum(trackUrl) {
+    try {
+        // Convert /_/ URL to direct track URL by removing the /_/ part entirely
+        // e.g., https://www.last.fm/music/Jafunk/_/Satisfied -> https://www.last.fm/music/Jafunk/Satisfied
+        const urlParts = trackUrl.split('/');
+        const musicIndex = urlParts.findIndex(part => part === 'music');
+        
+        if (musicIndex === -1) return { hasExistingArtwork: false };
+        
+        // Reconstruct URL without the /_/ part
+        const artist = urlParts[musicIndex + 1];
+        const track = urlParts[musicIndex + 3]; // Skip the /_/ part at index musicIndex + 2
+        
+        if (!artist || !track) return { hasExistingArtwork: false };
+        
+        const directTrackUrl = `https://www.last.fm/music/${artist}/${track}`;
+        
+        console.log(`Checking /_/ URL: ${trackUrl} -> Direct URL: ${directTrackUrl}`);
+        
+        // Check if the direct track URL has artwork
+        const hasArtwork = await checkTrackHasArtwork(directTrackUrl);
+        if (!hasArtwork) {
+            // No artwork found - this means the track page shows "Add artwork" message
+            return { hasExistingArtwork: true, trackUrl: directTrackUrl };
+        }
+        
+        // Artwork exists - don't skip the /_/ URL
+        return { hasExistingArtwork: false };
+    } catch (error) {
+        console.warn('Error checking existing artwork for unknown album:', error);
+        return { hasExistingArtwork: false };
+    }
+}
+
+async function checkTrackHasArtwork(trackUrl) {
+    try {
+        const response = await fetch(trackUrl);
+        if (!response.ok) return false;
+        
+        const html = await response.text();
+        
+        // Check directly in the HTML text for missing artwork indicators
+        const htmlLower = html.toLowerCase();
+        
+        // Look for missing artwork indicators in the raw HTML
+        const missingArtworkIndicators = [
+            'do you have the artwork for this album',
+            'add artwork',
+            constants.missingArtworkImageId,
+            constants.noLastfmAlbumExistsImageId,
+            '2a96cbd8b46e442fc41c2b86b821562f' // Another common missing artwork ID
+        ];
+        
+        for (const indicator of missingArtworkIndicators) {
+            if (htmlLower.includes(indicator.toLowerCase())) {
+                console.log(`Found missing artwork indicator: ${indicator} in ${trackUrl}`);
+                return false; // Missing artwork
+            }
+        }
+        
+        // If no missing artwork indicators found, artwork exists
+        console.log(`No missing artwork indicators found in ${trackUrl} - assuming artwork exists`);
+        return true;
+    } catch (error) {
+        console.warn('Error checking track artwork:', error);
+        return false;
+    }
 }
 
 missingArtworkIdentifier();

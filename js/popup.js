@@ -55,8 +55,6 @@ async function initForm() {
             const missingArtworkCount = document.getElementById('missingArtworkCount');
             const missingArtworkCountMain = document.getElementById('missingArtworkCountMain');
             
-            console.log('Missing artwork URLs found:', urls.length);
-            
             if (missingArtworkCount) missingArtworkCount.textContent = urls.length;
             if (missingArtworkCountMain) missingArtworkCountMain.textContent = urls.length;
             
@@ -123,7 +121,6 @@ async function initForm() {
 
     // Handle bulk open all missing artworks
     const openAllHandler = () => {
-        console.log('Opening all missing artworks...');
         chrome.runtime.sendMessage({ action: "openAllMissingArtworks" });
         // Close popup after opening tabs
         setTimeout(() => window.close(), 100);

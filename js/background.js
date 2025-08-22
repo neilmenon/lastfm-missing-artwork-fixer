@@ -20,11 +20,15 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "setBadgeText") {
-        chrome.action.setBadgeText({ text: request.text, tabId: sender.tab.id });
+        if (sender.tab && sender.tab.id) {
+            chrome.action.setBadgeText({ text: request.text, tabId: sender.tab.id });
+        }
     }
 
     if (request.action === "setTitle") {
-        chrome.action.setTitle({ title: request.text, tabId: sender.tab.id });
+        if (sender.tab && sender.tab.id) {
+            chrome.action.setTitle({ title: request.text, tabId: sender.tab.id });
+        }
     }
 
     if (request.action === "fetchImage") {
@@ -93,25 +97,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     if (request.action === "updateMissingArtworkUrls") {
-        missingArtworkUrls[sender.tab.id] = request.urls;
+        if (sender.tab && sender.tab.id) {
+            missingArtworkUrls[sender.tab.id] = request.urls;
+        }
     }
 
     if (request.action === "getMissingArtworkUrls") {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            const urls = missingArtworkUrls[tabs[0].id] || [];
-            sendResponse({ urls });
+            if (tabs && tabs.length > 0) {
+                const urls = missingArtworkUrls[tabs[0].id] || [];
+                sendResponse({ urls });
+            } else {
+                sendResponse({ urls: [] });
+            }
         });
         return true;
     }
 
     if (request.action === "openAllMissingArtworks") {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            const urls = missingArtworkUrls[tabs[0].id] || [];
-            urls.forEach((url, index) => {
-                setTimeout(() => {
-                    chrome.tabs.create({ url, active: false });
-                }, index * 100); // Stagger tab creation to avoid overwhelming the browser
-            });
+            if (tabs && tabs.length > 0) {
+                const urls = missingArtworkUrls[tabs[0].id] || [];
+                chrome.tabs.sendMessage(tabs[0].id, { action: "openAllMissingArtworks", urls });
+            }
         });
     }
 });

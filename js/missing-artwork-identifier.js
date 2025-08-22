@@ -3,7 +3,6 @@ async function missingArtworkIdentifier() {
     constants = await getConstants();
 
     if (!settings.highlightMissingArtworks) {
-        extensionLog("Highlighting of missing artworks has been disabled in extension settings. Exiting here.");
         return;
     }
 
@@ -17,7 +16,6 @@ async function missingArtworkIdentifier() {
         if (scanInterval) {
             clearInterval(scanInterval);
             scanInterval = null;
-            extensionLog("Missing artwork scanner interval cleared");
         }
     };
     
@@ -55,7 +53,6 @@ async function missingArtworkIdentifier() {
         }
 
         if (imageElementsMissingArtwork.length) {
-            extensionLog(`Found and highlighted ${imageElementsMissingArtwork.length} missing artwork entries.`);
             if (settings.autoFocusOnPageLoad) {
                 await new Promise(resolve => setTimeout(resolve, 100));
                 focusNextMissingArtworkButton(true);
@@ -90,45 +87,61 @@ async function missingArtworkIdentifier() {
             event.stopImmediatePropagation();
             event.stopPropagation();
             const clickedButtonAlbumLink = event.target?.dataset?.lfmmafAlbumLink;
-            extensionLog(`User clicked add button on missing artwork image with URL: ${clickedButtonAlbumLink}`);
             const imageUploadLink = clickedButtonAlbumLink.includes('/_/') 
                 ? clickedButtonAlbumLink.replace('/_/', '/') + '/+images/upload'
                 : clickedButtonAlbumLink + '/+images/upload';
-            const uploadTab = window.open(imageUploadLink, '_blank');
-
-            const checkInterval = setInterval(() => {
-                extensionLog(`Polling for new tab ${imageUploadLink} image upload and/or closure.`)
-                try {
-                    const isOnUploadedImagePage = !uploadTab.location.href.includes('/+images/upload') && uploadTab.location.href.includes('/+images/')
-
-                    if (isOnUploadedImagePage) {
-                        const imageIDUploaded = uploadTab.location.href?.split('/').pop();
-                        
-                        if (!uploadTab.closed && settings.autoCloseUploadTabWhenArtworkUploaded) {
-                            uploadTab.close();
-                        }
-
-                        const buttonElementsMatchingThisAlbum = document.querySelectorAll(`.lfmmaf-missing-artwork-button[data-lfmmaf-album-link="${clickedButtonAlbumLink}"]`);
-                        for (const buttonElement of buttonElementsMatchingThisAlbum) {
-                            buttonElement.parentElement.previousElementSibling.src = `${constants.lastfmCdnUrl}${imageIDUploaded}.jpg`;
-                            buttonElement.parentElement.previousElementSibling.classList.add('lfmmaf-missing-artwork-fixed');
-                            buttonElement.firstElementChild.src = constants.lastfmIconUrls.accept;
-                            buttonElement.classList.add('lfmmaf-selected');
-                        }
-
-                        if (settings.autoFocusNextMissingArtworkButton) {
-                            setTimeout(() => focusNextMissingArtworkButton(), 250);
-                        }
-                    }
-                    
-                    if (uploadTab.closed || isOnUploadedImagePage) {
-                        extensionLog("User uploaded an image in the new tab and/or closed the tab.");
-                        clearInterval(checkInterval);
-                    }
-                } catch (err) { }
-            }, 2000);
+            
+            openAndMonitorUploadTab(imageUploadLink, clickedButtonAlbumLink);
         }
     }, true);
+
+    // Listen for bulk open all message from background script
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+        if (request.action === "openAllMissingArtworks") {
+            const urls = request.urls || [];
+            urls.forEach((url, index) => {
+                setTimeout(() => {
+                    // Extract album link from upload URL
+                    const albumLink = url.replace('/+images/upload', '');
+                    openAndMonitorUploadTab(url, albumLink);
+                }, index * 100);
+            });
+        }
+    });
+
+    function openAndMonitorUploadTab(imageUploadLink, clickedButtonAlbumLink) {
+        const uploadTab = window.open(imageUploadLink, '_blank');
+
+        const checkInterval = setInterval(() => {
+            try {
+                const isOnUploadedImagePage = !uploadTab.location.href.includes('/+images/upload') && uploadTab.location.href.includes('/+images/')
+
+                if (isOnUploadedImagePage) {
+                    const imageIDUploaded = uploadTab.location.href?.split('/').pop();
+                    
+                    if (!uploadTab.closed && settings.autoCloseUploadTabWhenArtworkUploaded) {
+                        uploadTab.close();
+                    }
+
+                    const buttonElementsMatchingThisAlbum = document.querySelectorAll(`.lfmmaf-missing-artwork-button[data-lfmmaf-album-link="${clickedButtonAlbumLink}"]`);
+                    for (const buttonElement of buttonElementsMatchingThisAlbum) {
+                        buttonElement.parentElement.previousElementSibling.src = `${constants.lastfmCdnUrl}${imageIDUploaded}.jpg`;
+                        buttonElement.parentElement.previousElementSibling.classList.add('lfmmaf-missing-artwork-fixed');
+                        buttonElement.firstElementChild.src = constants.lastfmIconUrls.accept;
+                        buttonElement.classList.add('lfmmaf-selected');
+                    }
+
+                    if (settings.autoFocusNextMissingArtworkButton) {
+                        setTimeout(() => focusNextMissingArtworkButton(), 250);
+                    }
+                }
+                
+                if (uploadTab.closed || isOnUploadedImagePage) {
+                    clearInterval(checkInterval);
+                }
+            } catch (err) { }
+        }, 2000);
+    }
 }
 
 function focusNextMissingArtworkButton() {

@@ -444,6 +444,10 @@ async function selectArtworkByAlbumId(albumId, clickedElement) {
             lastfmDescriptionElement.value = `Artwork for ${selectedResult.album} by ${selectedResult.artist}${releasedDateText}.`
         }
         
+        // Update the clicked button to show success state
+        clickedElement.classList.add('lfmmaf-selected');
+        clickedElement.innerHTML = `<img src="${constants.lastfmIconUrls.accept}">`;
+        
         scrollAndFocusUploadButton();
     } catch (e) {
         extensionError("Error while fetching or attaching image.", e)
@@ -622,7 +626,7 @@ function extensionLog(message) {
 }
 
 function extensionError(message, error) {
-    console.error(`[Last.fm Missing Artwork Fixer] ❌ ${message}`, error)
+    // Removed console.error for production
 }
 
 async function getSettings() {

@@ -24,6 +24,9 @@ async function missingArtworkIdentifier() {
     window.addEventListener('pagehide', cleanup);
 
     scanInterval = setInterval(async () => {
+        // Get fresh settings each time to ensure we have the latest user preferences
+        settings = await getSettings();
+        
         const imageElementsMissingArtwork = document.querySelectorAll(`img[src*="${constants.missingArtworkImageId}"]:not(.lfmmaf-missing-artwork), img[src*="${constants.noLastfmAlbumExistsImageId}"]:not(.lfmmaf-missing-artwork)`);
         for (const element of imageElementsMissingArtwork) {
             element.classList.add('lfmmaf-missing-artwork');
@@ -64,8 +67,16 @@ async function missingArtworkIdentifier() {
         document.querySelectorAll('.lfmmaf-missing-artwork-button').forEach(button => {
             const albumLink = button.dataset?.lfmmafAlbumLink;
             if (albumLink) {
+                // Check if this is an unknown album URL (contains /_/)
+                const isUnknownAlbumUrl = albumLink.includes('/_/');
+                
+                // Only include unknown album URLs if the setting is enabled
+                if (isUnknownAlbumUrl && !settings.includeUnknownAlbumUrls) {
+                    return; // Skip this URL
+                }
+                
                 // For track URLs with /_/, convert to album URL format for upload
-                const uploadUrl = albumLink.includes('/_/') 
+                const uploadUrl = isUnknownAlbumUrl 
                     ? albumLink.replace('/_/', '/') + '/+images/upload'
                     : albumLink + '/+images/upload';
                 if (!missingArtworkUrls.includes(uploadUrl)) {
@@ -173,6 +184,21 @@ function focusNextMissingArtworkButton() {
         return true;
     }
     return false;
+}
+
+async function getSettings() {
+    const userSettings = await new Promise((resolve) =>
+        chrome.storage.sync.get('settings', resolve)
+    );
+    const defaultSettings = await (await fetch(chrome.runtime.getURL('json/default-settings.json'))).json();
+    return {
+        ...defaultSettings,
+        ...(userSettings?.settings ?? {}),
+    };
+}
+
+async function getConstants() {
+    return await (await fetch(chrome.runtime.getURL('json/constants.json'))).json();
 }
 
 missingArtworkIdentifier();

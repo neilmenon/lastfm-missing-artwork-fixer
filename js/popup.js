@@ -39,6 +39,7 @@ async function initForm() {
     document.getElementById('autoCloseUploadTabWhenArtworkUploaded').checked = settings.autoCloseUploadTabWhenArtworkUploaded;
     document.getElementById('autoFocusNextMissingArtworkButton').checked = settings.autoFocusNextMissingArtworkButton;
     document.getElementById('autoFocusOnPageLoad').checked = settings.autoFocusOnPageLoad;
+    document.getElementById('includeUnknownAlbumUrls').checked = settings.includeUnknownAlbumUrls;
 
     const extensionThemeRadio = document.querySelector(`input[name="extensionTheme"][value="${settings.extensionTheme}"]`);
     if (extensionThemeRadio) {
@@ -97,6 +98,7 @@ async function initForm() {
             autoCloseUploadTabWhenArtworkUploaded: document.getElementById('autoCloseUploadTabWhenArtworkUploaded').checked,
             autoFocusNextMissingArtworkButton: document.getElementById('autoFocusNextMissingArtworkButton').checked,
             autoFocusOnPageLoad: document.getElementById('autoFocusOnPageLoad').checked,
+            includeUnknownAlbumUrls: document.getElementById('includeUnknownAlbumUrls').checked,
         };
 
         await saveSettings(newSettings);

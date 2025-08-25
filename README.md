@@ -18,6 +18,7 @@ Help make Last.fm artwork cleaner and more complete for yourself and other Last.
 📌 On any Last.fm page:
 - ✅ Automatically identifies missing artwork on the Last.fm page you're on.
 - ✅ Convenient button takes you directly to the upload page for that album.
+- ✅ **Bulk open all missing artworks** - Open all missing artworks from the current page in separate tabs for efficient batch processing.
 - ✅ Extension badge shows you the number of missing artworks on the current page.
 - ✅ After you fix the artwork, extension will bring you right back to where you were so you don't miss a beat.
 
@@ -32,6 +33,7 @@ Help make Last.fm artwork cleaner and more complete for yourself and other Last.
 - ✅ View the total number of artworks you've fixed since you installed the extension for some well-deserved recognition for your efforts.
 - ✅ All of the functionality above is configurable by clicking on the extension icon.
 - ✅ Configurable theme (dark/light/auto) for extension settings pop-up (so you're not blinded when you're fixing artworks at 2am, right?).
+- ✅ **Option to include unknown album URLs** - Choose whether to include tracks with "/_/" URLs (tracks without proper album association) when using bulk open functionality.
 
 Please note that this extension does not bypass any Last.fm systems to upload artwork — it merely provides an aid in the process. You are still responsible for verifying and complying with all Last.fm policies when uploading artwork.
 

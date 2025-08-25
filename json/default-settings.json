@@ -9,5 +9,6 @@
     "autoCloseUploadTabWhenArtworkUploaded": true,
     "extensionTheme": "auto",
     "autoFocusNextMissingArtworkButton": true,
-    "autoFocusOnPageLoad": false
+    "autoFocusOnPageLoad": false,
+    "includeUnknownAlbumUrls": false
 }

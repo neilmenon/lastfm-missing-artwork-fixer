@@ -1,5 +1,3 @@
-
-
 let settings = {},
     constants = {},
     chooseFileContainer = null,
@@ -14,25 +12,19 @@ let settings = {},
     lastfmUploadButton = null,
     lastfmArtist = null,
     lastfmAlbum = null,
-    buttonFocusedOnInitialLoad = false;
-;
+    buttonFocusedOnInitialLoad = false,
+    countingInitialized = false; // Global flag to prevent multiple counting setups
 
 async function uploadArtworkPage() {
     settings = await getSettings();
     constants = await getConstants();
-    extensionLog(`Extension settings loaded. ${JSON.stringify(settings)}`);
 
-    extensionLog("Injecting artwork finder widget into DOM.")
     await injectArtworkWidget();
-    extensionLog('Artwork uploader injected!');
 
-    extensionLog("Setting initial search query.")
     injectDefaultSearchQuery()
-    extensionLog("Initial search query set.")
 
     executeSearchAndDisplayResults();
 
-    extensionLog("Listening for new searches and artwork selection.");
     listenForNewSearches();
     listenForArtworkSelection();
     return true;
@@ -46,6 +38,10 @@ async function injectArtworkWidget() {
     widget.innerHTML = htmlText;
     widget.querySelector('img.lfmmaf-extension-icon').src = chrome.runtime.getURL('icons/icon16.png');
 
+    if (!chooseFileContainer || !chooseFileContainer.parentElement) {
+        extensionError("Cannot inject artwork widget: chooseFileContainer or its parent not found");
+        return;
+    }
     chooseFileContainer.parentElement.insertBefore(widget, chooseFileContainer);
 
     searchInputElement = document.getElementById('lfmmaf-artwork-search');
@@ -83,10 +79,11 @@ async function injectArtworkWidget() {
         await executeSearchAndDisplayResults();
     });
 
-    lastfmUploadButton.addEventListener('click', () => {
-        settings = { ...settings, userFixedArtworksCount: settings.userFixedArtworksCount + 1 }
-        saveSettings(settings);
-    });
+    // Initialize counting logic only once globally
+    initializeUploadCounting();
+    
+    // Add auto-close functionality after successful submission
+    initializeAutoCloseOnSubmit();
 }
 
 function injectDefaultSearchQuery() {
@@ -141,8 +138,6 @@ async function searchForArtwork(searchQuery) {
 }
 
 async function searchAppleMusic(searchQuery) {
-    extensionLog(`Searching Apple Music for artwork with query: ${searchQuery}`);
-
     const artworkSource = constants.artworkSourceOptions.find(source => source.name === 'Apple Music');
     const url = artworkSource.searchUrl;
     let response;
@@ -161,23 +156,34 @@ async function searchAppleMusic(searchQuery) {
     }
 
     const resultText = await response.text();
-    const results = JSON.parse(resultText)?.results ?? [];
-    return results.map(album => ({
-        artist: album.artistName,
-        album: album.collectionName,
-        releaseDate: album.releaseDate,
-        trackCount: album.trackCount,
-        artworkUrl: album.artworkUrl100.replace("100x100bb", `${settings.selectedArtworkSize}x${settings.selectedArtworkSize}bb`),
-        artistUrl: album.artistViewUrl,
-        albumUrl: album.collectionViewUrl,
-        id: `am-${album.collectionId}`,
+    let parsedData;
+    try {
+        parsedData = JSON.parse(resultText);
+    } catch (error) {
+        extensionError("Failed to parse Apple Music API response", error);
+        return [];
+    }
+    
+    const results = parsedData?.results ?? [];
+    if (!Array.isArray(results)) {
+        extensionError("Apple Music API returned invalid results format", parsedData);
+        return [];
+    }
+    
+    return results.filter(album => album && album.artistName && album.collectionName).map(album => ({
+        artist: album.artistName || 'Unknown Artist',
+        album: album.collectionName || 'Unknown Album',
+        releaseDate: album.releaseDate || null,
+        trackCount: album.trackCount || null,
+        artworkUrl: album.artworkUrl100 ? album.artworkUrl100.replace("100x100bb", `${settings.selectedArtworkSize}x${settings.selectedArtworkSize}bb`) : null,
+        artistUrl: album.artistViewUrl || null,
+        albumUrl: album.collectionViewUrl || null,
+        id: `am-${album.collectionId || Math.random().toString(36).substr(2, 9)}`,
         source: artworkSource,
     }))
 }
 
 async function searchBandcamp(searchQuery) {
-    extensionLog(`Searching Bandcamp for artwork with query: ${searchQuery}`);
-
     const artworkSource = constants.artworkSourceOptions.find(source => source.name === 'Bandcamp');
     const results = await fetchArtworkResultsFromBackgroundScript(searchQuery, 'fetchBandcamp')
         .catch(error => {
@@ -189,22 +195,25 @@ async function searchBandcamp(searchQuery) {
         return;
     }
 
-    return results.filter(x => ['a', 't'].includes(x.type)).map(album => ({
-        artist: album.band_name,
-        album: album.name,
+    if (!Array.isArray(results)) {
+        extensionError("Bandcamp API returned invalid results format", results);
+        return [];
+    }
+    
+    return results.filter(x => x && ['a', 't'].includes(x.type) && x.band_name && x.name).map(album => ({
+        artist: album.band_name || 'Unknown Artist',
+        album: album.name || 'Unknown Album',
         releaseDate: null,
         trackCount: null,
-        artworkUrl: `https://f4.bcbits.com/img/a${album.art_id}_10.jpg`,
-        artistUrl: album.item_url_root,
-        albumUrl: album.item_url_path,
-        id: `bc-${album.id}`,
+        artworkUrl: album.art_id ? `${constants.bandcampImageUrl}${album.art_id}_10.jpg` : null,
+        artistUrl: album.item_url_root || null,
+        albumUrl: album.item_url_path || null,
+        id: `bc-${album.id || Math.random().toString(36).substr(2, 9)}`,
         source: artworkSource,
     }));
 }
 
 async function searchDeezer(searchQuery) {
-    extensionLog(`Searching Deezer for artwork with query: ${searchQuery}`);
-    
     const artworkSource = constants.artworkSourceOptions.find(source => source.name === 'Deezer');
     const results = await fetchArtworkResultsFromBackgroundScript(searchQuery, 'fetchDeezer')
         .catch(error => {
@@ -216,22 +225,25 @@ async function searchDeezer(searchQuery) {
         return;
     }
 
-    return results.map(album => ({
-        artist: album.artist.name,
-        album: album.title,
+    if (!Array.isArray(results)) {
+        extensionError("Deezer API returned invalid results format", results);
+        return [];
+    }
+
+    return results.filter(album => album && album.artist && album.title).map(album => ({
+        artist: album.artist?.name || 'Unknown Artist',
+        album: album.title || 'Unknown Album',
         releaseDate: null,
-        trackCount: album.nb_tracks,
-        artworkUrl: album.cover_xl,
-        artistUrl: album.artist.link,
-        albumUrl: album.link,
-        id: `dz-${album.id}`,
+        trackCount: album.nb_tracks || null,
+        artworkUrl: album.cover_xl || null,
+        artistUrl: album.artist?.link || null,
+        albumUrl: album.link || null,
+        id: `dz-${album.id || Math.random().toString(36).substr(2, 9)}`,
         source: artworkSource,
     }));
 }
 
 async function searchDiscogs(searchQuery) {
-    extensionLog(`Searching Discogs for artwork with query: ${searchQuery}`);
-    
     const artworkSource = constants.artworkSourceOptions.find(source => source.name === 'Discogs');
     const results = await fetchArtworkResultsFromBackgroundScript(searchQuery, 'fetchDiscogs')
         .catch(error => {
@@ -243,18 +255,23 @@ async function searchDiscogs(searchQuery) {
         return;
     }
 
+    if (!Array.isArray(results)) {
+        extensionError("Discogs API returned invalid results format", results);
+        return [];
+    }
+
     return results
-        .filter(album => (album?.images?.edges?.at(0)?.node?.tiny?.sourceUrl?.length ?? 0) > 0)
+        .filter(album => album && (album?.images?.edges?.at(0)?.node?.tiny?.sourceUrl?.length ?? 0) > 0)
         .map(album => ({
-            artist: album?.primaryArtists?.map(artist => artist.artist.name).join(', ') ?? 'Unknown Artist',
-            album: album?.title ?? 'Unknown Album',
-            releaseDate: album?.released,
-            extraInfo: `${album?.country ?? ''} • ${album?.formats?.map(format => format.name).join(', ') ?? ''}`,
+            artist: album?.primaryArtists?.map(artist => artist?.artist?.name).filter(Boolean).join(', ') || 'Unknown Artist',
+            album: album?.title || 'Unknown Album',
+            releaseDate: album?.released || null,
+            extraInfo: `${album?.country || ''} • ${album?.formats?.map(format => format?.name).filter(Boolean).join(', ') || ''}`,
             trackCount: null,
-            artworkUrl: album?.images?.edges?.at(0)?.node?.tiny?.sourceUrl,
-            artistUrl: `https://www.discogs.com/artist/${album?.primaryArtists?.at(0)?.artist.discogsId ?? ''}`,
-            albumUrl: `https://www.discogs.com${album?.siteUrl}`,
-            id: `dc-${album.discogsId}`,
+            artworkUrl: album?.images?.edges?.at(0)?.node?.tiny?.sourceUrl || null,
+            artistUrl: album?.primaryArtists?.at(0)?.artist?.discogsId ? `https://www.discogs.com/artist/${album.primaryArtists.at(0).artist.discogsId}` : null,
+            albumUrl: album?.siteUrl ? `https://www.discogs.com${album.siteUrl}` : null,
+            id: `dc-${album?.discogsId || Math.random().toString(36).substr(2, 9)}`,
             source: artworkSource,
     }));
 }
@@ -278,7 +295,7 @@ function displayResults() {
                     title="Artwork for ${result.artist} - ${result.album}"
                 >
                 <button class="lfmmaf-upload-button" title="Select this artwork to upload" data-lfmmaf-album-id="${result.id}">
-                    <img src="https://www.last.fm/static/images/icons/add_fff_16.png">
+                    <img src="${constants.lastfmIconUrls.add}">
                 </button>
                 <div class="lffmaf-result-info">
                     <div class="lfmmaf-result-title-text">
@@ -303,7 +320,6 @@ function displayResults() {
 
 async function executeSearchAndDisplayResults() {
     if (/https?:\/\/[^\s/$.?#].[^\s]*/gi.test(searchInputElement.value)) {
-        extensionLog("User provided direct image link. Attempting to fetch it.");
         await fetchAndPopulateImageFromLink();
         return;
     }
@@ -331,7 +347,6 @@ async function executeSearchAndDisplayResults() {
         showMessage(`Failed to fetch artwork from ${sourceSelectElement.value}. Please try again.`, 'danger');
         return;
     }
-    extensionLog(`Found ${results.length} result(s).`)
     displayResults(results);
 }
 
@@ -363,7 +378,6 @@ async function selectArtworkByAlbumId(albumId, clickedElement) {
         extensionError(`User clicked select button on album with ID: ${albumId}, but no entry was found in results list!`);
         return;
     }
-    extensionLog(`User selected ${selectedResult.artist} - ${selectedResult.album} for upload. Fetching external image to upload.`);
     showLoadingPulse();
 
     if (selectedResult.source.name === 'Discogs') {
@@ -372,7 +386,7 @@ async function selectArtworkByAlbumId(albumId, clickedElement) {
         document.getElementById(`discogs-message-${selectedResult.id}`)?.remove();
 
         const imageElement = document.querySelector(`img[src="${selectedResult.artworkUrl}"]`);
-        imageElement.src = 'https://i.imgur.com/al6rQhx.gif';
+        imageElement.src = constants.loadingGifUrl;
 
         const fullSizeImageUrl = await fetchDiscogsFullSizeImageUrl(selectedResult.albumUrl)
             .catch(error => {
@@ -410,14 +424,6 @@ async function selectArtworkByAlbumId(albumId, clickedElement) {
     
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        const previouslySelectedItems = document.querySelectorAll('.lfmmaf-selected');
-        for (const element of previouslySelectedItems) {
-            element.firstElementChild.src = 'https://www.last.fm/static/images/icons/add_fff_16.png';
-            element.classList.remove('lfmmaf-selected');
-        }
-        clickedElement.firstElementChild.src = 'https://www.last.fm/static/images/icons/accept_fff_16.png';
-        clickedElement.classList.add('lfmmaf-selected');
-
         const fileInputContainer = lastfmFileInputElement.closest('.btn-file');
         fileInputContainer.classList.add('lfmmaf-file-input-disabled');
 
@@ -438,6 +444,10 @@ async function selectArtworkByAlbumId(albumId, clickedElement) {
             lastfmDescriptionElement.value = `Artwork for ${selectedResult.album} by ${selectedResult.artist}${releasedDateText}.`
         }
         
+        // Update the clicked button to show success state
+        clickedElement.classList.add('lfmmaf-selected');
+        clickedElement.innerHTML = `<img src="${constants.lastfmIconUrls.accept}">`;
+        
         scrollAndFocusUploadButton();
     } catch (e) {
         extensionError("Error while fetching or attaching image.", e)
@@ -446,8 +456,6 @@ async function selectArtworkByAlbumId(albumId, clickedElement) {
     } finally {
         hideLoadingPulse();
     }
-
-    extensionLog("Successfully attached image to Last.fm file input.");
 }
 
 async function fetchAndPopulateImageFromLink() {
@@ -511,7 +519,7 @@ async function fetchAndPopulateImageFromLink() {
                     title="Artwork for ${lastfmArtist} - ${lastfmAlbum}"
                 >
                 <button class="lfmmaf-upload-button lfmmaf-selected" title="Select this artwork to upload">
-                    <img src="https://www.last.fm/static/images/icons/accept_fff_16.png">
+                    <img src="${constants.lastfmIconUrls.accept}">
                 </button>
             </div> 
         `;
@@ -526,8 +534,6 @@ async function fetchAndPopulateImageFromLink() {
     } finally {
         hideLoadingPulse();
     }
-
-    extensionLog("Successfully attached image to Last.fm file input.")
 }
 
 async function fetchImageBlob(url) {
@@ -616,11 +622,11 @@ function showMessage(message, type) {
 }
 
 function extensionLog(message) {
-    console.log(`[Last.fm Missing Artwork Fixer] 💿 ${message}`)
+    // Removed console.log for production
 }
 
 function extensionError(message, error) {
-    console.error(`[Last.fm Missing Artwork Fixer] ❌ ${message}`, error)
+    // Removed console.error for production
 }
 
 async function getSettings() {
@@ -644,7 +650,162 @@ async function saveSettings(newSettings) {
     );
 }
 
-setInterval(() => {
+function initializeUploadCounting() {
+    // Use a more robust initialization check with unique key per tab
+    const initKey = `lfmmafCountingInitialized_${Date.now()}_${Math.random()}`;
+    
+    // Prevent multiple initializations in the same tab
+    if (window.lfmmafCountingActive) {
+        return;
+    }
+    
+    window.lfmmafCountingActive = true;
+    
+    // Function to check and count if on success page
+    const checkAndCount = (source) => {
+        const currentUrl = window.location.href;
+        
+        if (currentUrl.includes('/+images/') && !currentUrl.includes('/upload')) {
+            const urlParts = currentUrl.split('/');
+            const imageId = urlParts[urlParts.length - 1] || urlParts[urlParts.length - 2];
+            
+            // More flexible image ID validation - allow alphanumeric IDs
+            if (imageId && imageId.length > 0 && !hasBeenCounted(imageId)) {
+                incrementFixedArtworksCounter(imageId);
+            }
+        }
+    };
+    
+    // Check immediately if we're already on a successful upload page
+    checkAndCount('initial-load');
+    
+    // Monitor URL changes more reliably using multiple methods
+    let lastUrl = window.location.href;
+    
+    // Method 1: MutationObserver for DOM changes
+    const observer = new MutationObserver(() => {
+        if (window.location.href !== lastUrl) {
+            lastUrl = window.location.href;
+            checkAndCount('mutation-observer');
+        }
+    });
+    observer.observe(document, { childList: true, subtree: true });
+    
+    // Method 2: Interval checking (fallback)
+    const urlCheckInterval = setInterval(() => {
+        if (window.location.href !== lastUrl) {
+            lastUrl = window.location.href;
+            checkAndCount('interval-check');
+        }
+    }, 500);
+    
+    // Method 3: PopState events
+    window.addEventListener('popstate', () => {
+        setTimeout(() => checkAndCount('popstate'), 50);
+    });
+    
+    // Method 4: HashChange events
+    window.addEventListener('hashchange', () => {
+        setTimeout(() => checkAndCount('hashchange'), 50);
+    });
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+        observer.disconnect();
+        clearInterval(urlCheckInterval);
+        window.lfmmafCountingActive = false;
+    });
+}
+
+function incrementFixedArtworksCounter(imageId) {
+    // Use image-specific locking to prevent double counting the same image
+    const lockKey = `lfmmafCountingLock_${imageId}`;
+    const lockTimeout = 5000; // 5 seconds timeout per image
+    const now = Date.now();
+    const currentLock = window[lockKey];
+    
+    // Check if this specific image is already being processed
+    if (currentLock && (now - currentLock) < lockTimeout) {
+        return;
+    }
+    
+    // Set lock for this specific image
+    window[lockKey] = now;
+    
+    // Double-check to prevent race conditions
+    if (hasBeenCounted(imageId)) {
+        delete window[lockKey];
+        return;
+    }
+    
+    // Store the image ID immediately to prevent double counting
+    markAsCounted(imageId);
+    
+    // Get fresh settings to avoid stale data
+    getSettings().then(freshSettings => {
+        const currentCount = freshSettings.userFixedArtworksCount || 0;
+        const newCount = currentCount + 1;
+        const updatedSettings = { ...freshSettings, userFixedArtworksCount: newCount };
+        
+        return saveSettings(updatedSettings).then(() => {
+            settings = updatedSettings; // Update local copy
+            
+            // Clear lock after successful save
+            setTimeout(() => {
+                delete window[lockKey];
+            }, 1000);
+            
+            return newCount;
+        });
+    }).catch(error => {
+        extensionError(`Failed to increment counter for image ${imageId}:`, error);
+        
+        // On error, remove from counted list so it can be retried
+        const countedImages = JSON.parse(localStorage.getItem('lfmmaf-counted-images') || '[]');
+        const index = countedImages.indexOf(imageId);
+        if (index > -1) {
+            countedImages.splice(index, 1);
+            localStorage.setItem('lfmmaf-counted-images', JSON.stringify(countedImages));
+        }
+        
+        // Clear lock even on error
+        delete window[lockKey];
+    });
+}
+
+function hasBeenCounted(imageId) {
+    const countedImages = JSON.parse(localStorage.getItem('lfmmaf-counted-images') || '[]');
+    return countedImages.includes(imageId);
+}
+
+function markAsCounted(imageId) {
+    const countedImages = JSON.parse(localStorage.getItem('lfmmaf-counted-images') || '[]');
+    if (!countedImages.includes(imageId)) {
+        countedImages.push(imageId);
+        // Keep only last 1000 entries to prevent localStorage bloat
+        if (countedImages.length > 1000) {
+            countedImages.splice(0, countedImages.length - 1000);
+        }
+        localStorage.setItem('lfmmaf-counted-images', JSON.stringify(countedImages));
+    }
+}
+
+// Store interval ID for cleanup
+let pageCheckInterval;
+
+// Cleanup function
+const cleanup = () => {
+    if (pageCheckInterval) {
+        clearInterval(pageCheckInterval);
+        pageCheckInterval = null;
+    }
+};
+
+// Clean up when page is unloaded
+window.addEventListener('beforeunload', cleanup);
+window.addEventListener('pagehide', cleanup);
+
+pageCheckInterval = setInterval(() => {
     chooseFileContainer = document.querySelector('.form-group--image');
     artworkWidgetContainer = document.getElementById('lfmmaf-widget');
     lastfmArtist = document.querySelector("span[itemprop=byArtist] span[itemprop=name]")?.textContent?.trim();
@@ -652,10 +813,44 @@ setInterval(() => {
 
     if (chooseFileContainer && !artworkWidgetContainer) {
         if (!lastfmAlbum?.length || !lastfmArtist?.length) {
-            extensionLog('Either artist or album is missing from page, this could be a non-album upload page. Skipping injection.');
             return;
         }
-        extensionLog("Found artwork upload form, initiating script.")
         uploadArtworkPage();
     }
 }, 1000);
+
+function initializeAutoCloseOnSubmit() {
+    // Monitor for successful form submission and redirect
+    const observer = new MutationObserver(() => {
+        const currentUrl = window.location.href;
+        
+        // Check if we've been redirected to a successful upload page
+        if (currentUrl.includes('/+images/') && !currentUrl.includes('/upload')) {
+            // Close the tab after a short delay to allow user to see success
+            setTimeout(() => {
+                window.close();
+            }, 2000);
+            
+            // Stop observing once we detect success
+            observer.disconnect();
+        }
+    });
+    
+    // Start observing for URL changes
+    observer.observe(document, { childList: true, subtree: true });
+    
+    // Also listen for popstate events (back/forward navigation)
+    window.addEventListener('popstate', () => {
+        const currentUrl = window.location.href;
+        if (currentUrl.includes('/+images/') && !currentUrl.includes('/upload')) {
+            setTimeout(() => {
+                window.close();
+            }, 2000);
+        }
+    });
+    
+    // Clean up observer when page unloads
+    window.addEventListener('beforeunload', () => {
+        observer.disconnect();
+    });
+}

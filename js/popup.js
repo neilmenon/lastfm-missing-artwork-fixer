@@ -39,6 +39,7 @@ async function initForm() {
     document.getElementById('autoCloseUploadTabWhenArtworkUploaded').checked = settings.autoCloseUploadTabWhenArtworkUploaded;
     document.getElementById('autoFocusNextMissingArtworkButton').checked = settings.autoFocusNextMissingArtworkButton;
     document.getElementById('autoFocusOnPageLoad').checked = settings.autoFocusOnPageLoad;
+    document.getElementById('includeUnknownAlbumUrls').checked = settings.includeUnknownAlbumUrls;
 
     const extensionThemeRadio = document.querySelector(`input[name="extensionTheme"][value="${settings.extensionTheme}"]`);
     if (extensionThemeRadio) {
@@ -47,28 +48,58 @@ async function initForm() {
     
     document.getElementById('userFixedArtworksCount').innerText = `${settings.userFixedArtworksCount}`;
 
+    // Check for missing artworks on current page and show bulk open button
+    setTimeout(() => {
+        chrome.runtime.sendMessage({ action: "getMissingArtworkUrls" }, (response) => {
+            const urls = response?.urls || [];
+            const openAllButtonMain = document.getElementById('openAllMissingArtworksMain');
+            const missingArtworkCount = document.getElementById('missingArtworkCount');
+            const missingArtworkCountMain = document.getElementById('missingArtworkCountMain');
+            
+            if (missingArtworkCount) missingArtworkCount.textContent = urls.length;
+            if (missingArtworkCountMain) missingArtworkCountMain.textContent = urls.length;
+            
+            if (urls.length > 0) {
+                if (openAllButtonMain) {
+                    openAllButtonMain.style.display = 'block';
+                    openAllButtonMain.disabled = false;
+                }
+            } else {
+                if (openAllButtonMain) {
+                    openAllButtonMain.style.display = 'block';
+                    openAllButtonMain.disabled = true;
+                    openAllButtonMain.innerHTML = '<i class="bi bi-box-arrow-up-right"></i> No Missing Artworks Found';
+                }
+            }
+        });
+    }, 500);
+
     document.getElementById('saveSettingsButton').addEventListener('click', async (event) => {
         event.preventDefault();
         
         document.getElementById('selectedArtworkSize').classList.remove('is-invalid');
 
+        const artworkSizeValue = parseInt(document.getElementById('selectedArtworkSize').value, 10);
+        
+        // Validate artwork size before creating settings object
+        if (isNaN(artworkSizeValue) || artworkSizeValue < 800 || artworkSizeValue > 10000) {
+            document.getElementById('selectedArtworkSize').classList.add('is-invalid');
+            return;
+        }
+
         const newSettings = {
             ...settings,
             selectedArtworkSource: artworkSelect.value,
             selectedCountry: countrySelect.value,
-            // selectedArtworkSize: parseInt(document.getElementById('selectedArtworkSize').value, 10),
+            selectedArtworkSize: artworkSizeValue,
             populateTitleField: document.getElementById('populateTitleField').checked,
             populateDescriptionField: document.getElementById('populateDescriptionField').checked,
             highlightMissingArtworks: document.getElementById('highlightMissingArtworks').checked,
             autoCloseUploadTabWhenArtworkUploaded: document.getElementById('autoCloseUploadTabWhenArtworkUploaded').checked,
             autoFocusNextMissingArtworkButton: document.getElementById('autoFocusNextMissingArtworkButton').checked,
             autoFocusOnPageLoad: document.getElementById('autoFocusOnPageLoad').checked,
+            includeUnknownAlbumUrls: document.getElementById('includeUnknownAlbumUrls').checked,
         };
-
-        if (newSettings.selectedArtworkSize < 800 || newSettings.selectedArtworkSize > 10000) {
-            document.getElementById('selectedArtworkSize').classList.add('is-invalid');
-            return;
-        }
 
         await saveSettings(newSettings);
 
@@ -89,6 +120,18 @@ async function initForm() {
             }
         });
     });
+
+    // Handle bulk open all missing artworks
+    const openAllHandler = () => {
+        chrome.runtime.sendMessage({ action: "openAllMissingArtworks" });
+        // Close popup after opening tabs
+        setTimeout(() => window.close(), 100);
+    };
+    
+    const openAllButtonMain = document.getElementById('openAllMissingArtworksMain');
+    if (openAllButtonMain) {
+        openAllButtonMain.addEventListener('click', openAllHandler);
+    }
 }
 
 async function getSettings() {

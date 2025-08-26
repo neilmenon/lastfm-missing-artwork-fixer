@@ -20,19 +20,15 @@ let settings = {},
 async function uploadArtworkPage() {
     settings = await getSettings();
     constants = await getConstants();
-    extensionLog(`Extension settings loaded. ${JSON.stringify(settings)}`);
+    extensionLog(`Extension settings loaded.`);
+    console.log(settings);
 
-    extensionLog("Injecting artwork finder widget into DOM.")
     await injectArtworkWidget();
-    extensionLog('Artwork uploader injected!');
 
-    extensionLog("Setting initial search query.")
     injectDefaultSearchQuery()
-    extensionLog("Initial search query set.")
 
     executeSearchAndDisplayResults();
 
-    extensionLog("Listening for new searches and artwork selection.");
     listenForNewSearches();
     listenForArtworkSelection();
     return true;
@@ -278,15 +274,15 @@ function displayResults() {
                     title="Artwork for ${result.artist} - ${result.album}"
                 >
                 <button class="lfmmaf-upload-button" title="Select this artwork to upload" data-lfmmaf-album-id="${result.id}">
-                    <img src="https://www.last.fm/static/images/icons/add_fff_16.png">
+                    <img src="${constants.lastfmIconUrls.add}">
                 </button>
                 <div class="lffmaf-result-info">
                     <div class="lfmmaf-result-title-text">
-                        <a tabindex="-1" href="${result.albumUrl}" target="_blank" title="Open ${result.album} in ${sourceSelectElement.value}" class="lfmmaf-link">${result.album}</a>
+                        <a tabindex="-1" href="${result.albumUrl}" target="_blank" title="Open ${result.album} in ${result.source.name}" class="lfmmaf-link">${result.album}</a>
                         <img src="${result.source.iconUrl}" title="Source: ${result.source.name}" class="lfmmaf-source-icon">
                     </div>
                     <div>
-                        <a tabindex="-1" href="${result.artistUrl}" target="_blank" title="Open ${result.artist} in ${sourceSelectElement.value}" class="lfmmaf-link">${result.artist}</a>
+                        <a tabindex="-1" href="${result.artistUrl}" target="_blank" title="Open ${result.artist} in ${result.source.name}" class="lfmmaf-link">${result.artist}</a>
                     </div>
                     ${subTitle}
                 </div>
@@ -372,7 +368,7 @@ async function selectArtworkByAlbumId(albumId, clickedElement) {
         document.getElementById(`discogs-message-${selectedResult.id}`)?.remove();
 
         const imageElement = document.querySelector(`img[src="${selectedResult.artworkUrl}"]`);
-        imageElement.src = 'https://i.imgur.com/al6rQhx.gif';
+        imageElement.src = constants.loadingGifUrl;
 
         const fullSizeImageUrl = await fetchDiscogsFullSizeImageUrl(selectedResult.albumUrl)
             .catch(error => {
@@ -511,7 +507,7 @@ async function fetchAndPopulateImageFromLink() {
                     title="Artwork for ${lastfmArtist} - ${lastfmAlbum}"
                 >
                 <button class="lfmmaf-upload-button lfmmaf-selected" title="Select this artwork to upload">
-                    <img src="https://www.last.fm/static/images/icons/accept_fff_16.png">
+                    <img src="${constants.lastfmIconUrls.accept}">
                 </button>
             </div> 
         `;

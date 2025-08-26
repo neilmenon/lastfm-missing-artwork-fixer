@@ -27,7 +27,7 @@ async function missingArtworkIdentifier() {
             const missingArtworkAddButtonElement = document.createElement('div');
             missingArtworkAddButtonElement.innerHTML = `
                 <button class="lfmmaf-missing-artwork-button${element.width < 75 ? ' lfmmaf-btn-small' : ''}" title="Fix this missing artwork" data-lfmmaf-album-link="${albumLink}">
-                    <img src="https://www.last.fm/static/images/icons/add_fff_16.png">
+                    <img src="${constants.lastfmIconUrls.add}">
                 </button>
             `
 
@@ -75,9 +75,9 @@ async function missingArtworkIdentifier() {
 
                         const buttonElementsMatchingThisAlbum = document.querySelectorAll(`.lfmmaf-missing-artwork-button[data-lfmmaf-album-link="${clickedButtonAlbumLink}"]`);
                         for (const buttonElement of buttonElementsMatchingThisAlbum) {
-                            buttonElement.parentElement.previousElementSibling.src = `https://lastfm.freetls.fastly.net/i/u/300x300/${imageIDUploaded}.jpg`;
+                            buttonElement.parentElement.previousElementSibling.src = `${constants.lastfmCdnUrl}${imageIDUploaded}.jpg`;
                             buttonElement.parentElement.previousElementSibling.classList.add('lfmmaf-missing-artwork-fixed');
-                            buttonElement.firstElementChild.src = 'https://www.last.fm/static/images/icons/accept_fff_16.png';
+                            buttonElement.firstElementChild.src = constants.lastfmIconUrls.accept;
                             buttonElement.classList.add('lfmmaf-selected');
                         }
 

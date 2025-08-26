@@ -23,7 +23,6 @@
         notes.innerHTML = '<p class="text-center">No release notes found.</p>';
       }
     } catch (err) {
-      console.error(err);
       notes.innerHTML = "<p class='text-danger text-center'>Failed to fetch release notes.</p>";
     }
   } else {

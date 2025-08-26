@@ -19,17 +19,28 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "setBadgeText") {
-        chrome.action.setBadgeText({ text: request.text, tabId: sender.tab.id });
+        if (sender.tab && sender.tab.id) {
+            chrome.action.setBadgeText({ text: request.text, tabId: sender.tab.id });
+        }
     }
 
     if (request.action === "setTitle") {
-        chrome.action.setTitle({ title: request.text, tabId: sender.tab.id });
+        if (sender.tab && sender.tab.id) {
+            chrome.action.setTitle({ title: request.text, tabId: sender.tab.id });
+        }
     }
 
     if (request.action === "fetchImage") {
         fetch(request.url)
         .then(response => {
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            // Validate content type
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.startsWith('image/')) {
+                throw new Error(`Invalid content type: ${contentType}`);
+            }
+            
             return response.blob();
         })
         .then(blob => {

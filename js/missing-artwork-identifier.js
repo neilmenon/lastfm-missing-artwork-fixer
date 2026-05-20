@@ -34,15 +34,17 @@ async function missingArtworkIdentifier() {
             element.parentElement.appendChild(missingArtworkAddButtonElement);
         }
 
+        const totalUnfixedArtworks = document.querySelectorAll(`img[src*="${constants.missingArtworkImageId}"]`).length;
+
         if (imageElementsMissingArtwork.length) {
             extensionLog(`Found and highlighted ${imageElementsMissingArtwork.length} missing artwork entries.`);
-            if (settings.autoFocusOnPageLoad) {
-                await new Promise(resolve => setTimeout(resolve, 100));
-                focusNextMissingArtworkButton(true);
-            }
         }
 
-        const totalUnfixedArtworks = document.querySelectorAll(`img[src*="${constants.missingArtworkImageId}"]`).length;
+        if ((imageElementsMissingArtwork.length && settings.autoFocusOnPageLoad) || settings.autoFocusNextPageButton) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            focusNextMissingArtworkButton();
+        }
+
         chrome.runtime.sendMessage({ action: "setBadgeText", text: `${totalUnfixedArtworks}` });
         chrome.runtime.sendMessage({ action: "setTitle", text: `${totalUnfixedArtworks} missing artwork(s) on this page.` });
     }, 1000);
@@ -109,10 +111,16 @@ function focusNextMissingArtworkButton() {
         return true;
     });
     const indexofLastSelectedButton = missingArtworkButtons.findLastIndex(button => button.classList.contains('lfmmaf-selected'));
-    const nextMissingArtworkButton = missingArtworkButtons.at(indexofLastSelectedButton + 1)
+    const nextMissingArtworkButton = missingArtworkButtons.at(indexofLastSelectedButton + 1);
+    const nextPageInPagination = document.querySelector('li[aria-current="page"] + li.pagination-page > a');
+    const buttonToFocus = nextMissingArtworkButton ?? (settings.autoFocusNextPageButton ? nextPageInPagination : null);
 
-    if (nextMissingArtworkButton) {
-        const focusFunction = () => nextMissingArtworkButton.focus();
+    if (document.activeElement === buttonToFocus) {
+        return;
+    }
+
+    if (buttonToFocus) {
+        const focusFunction = () => buttonToFocus.focus();
         document.addEventListener('scrollend', focusFunction, { once: true });
         const currentY = window.scrollY;
         setTimeout(() => {
@@ -121,10 +129,8 @@ function focusNextMissingArtworkButton() {
                 removeEventListener('scrollend', focusFunction);
             }
         }, 250);
-        setTimeout(() => nextMissingArtworkButton.scrollIntoView({ behavior: 'smooth', block: 'center' }), 10);
-        return true;
+        setTimeout(() => buttonToFocus.scrollIntoView({ behavior: 'smooth', block: 'center' }), 10);
     }
-    return false;
 }
 
 missingArtworkIdentifier();

@@ -83,6 +83,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             .catch(error => sendResponse({ success: false, error: error.message }));
         return true;
     }
+
+    if (request.action === "fetchLeaderboard") {
+        fetchLeaderboard()
+            .then(results => sendResponse({ success: true, results }))
+            .catch(error => sendResponse({ success: false, error: error.message }));
+        return true;
+    }
+
+    if (request.action === "updateLeaderboard") {
+        updateLeaderboard(request.payload)
+            .then(results => sendResponse({ success: true, results }))
+            .catch(error => sendResponse({ success: false, error: error.message }));
+        return true;
+    }
+
+    if (request.action === "deleteFromLeaderboard") {
+        deleteFromLeaderboard(request.payload)
+            .then(results => sendResponse({ success: true, results }))
+            .catch(error => sendResponse({ success: false, error: error.message }));
+        return true;
+    }
 });
 
 async function fetchBandcamp(searchQuery) {
@@ -139,6 +160,41 @@ async function fetchFullSizeImageUrlFromDiscogsReleaseLink(discogsReleaseLink) {
 
     const match = htmlText.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["'][^>]*>/i);
     return match ? match[1] : null;
+}
+
+async function fetchLeaderboard() {
+    const response = await fetch(constants.leaderboardAPIUrl, {
+        headers: { 'Content-Type': 'application/json', 'Authorization': constants.leaderboardAPIHeader }
+    });
+
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+
+    const results = (await response.json());
+    return results || [];
+}
+
+async function updateLeaderboard(body) {
+    const response = await fetch(constants.leaderboardAPIUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': constants.leaderboardAPIHeader },
+        body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+
+    return true;
+}
+
+async function deleteFromLeaderboard(body) {
+    const response = await fetch(constants.leaderboardAPIUrl, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'Authorization': constants.leaderboardAPIHeader },
+        body: JSON.stringify(body),
+    });
 }
 
 async function getConstants() {

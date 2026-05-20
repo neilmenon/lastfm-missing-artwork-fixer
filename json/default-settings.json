@@ -5,9 +5,12 @@
     "populateTitleField": true,
     "populateDescriptionField": true,
     "userFixedArtworksCount": 0,
+    "username": null,
     "highlightMissingArtworks": true,
     "autoCloseUploadTabWhenArtworkUploaded": true,
     "extensionTheme": "auto",
     "autoFocusNextMissingArtworkButton": true,
-    "autoFocusOnPageLoad": false
+    "autoFocusOnPageLoad": false,
+    "autoFocusNextPageButton": false,
+    "publishToLeaderboard": false
 }

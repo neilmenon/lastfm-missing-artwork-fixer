@@ -14,7 +14,8 @@ let settings = {},
     lastfmUploadButton = null,
     lastfmArtist = null,
     lastfmAlbum = null,
-    buttonFocusedOnInitialLoad = false;
+    buttonFocusedOnInitialLoad = false,
+    username = null
 ;
 
 async function uploadArtworkPage() {
@@ -52,6 +53,7 @@ async function injectArtworkWidget() {
     lastfmFileInputElement = document.getElementById('id_image');
     lastfmUploadButton = document.querySelector('button[type="submit"].btn-primary');
     lastfmUploadButton.classList.add('lfmmaf-lastfm-upload-image-button');
+    username = document.querySelector(".username")?.innerText?.trim() || null;
 
     for (const source of constants.artworkSourceOptions) {
         sourceSelectElement.innerHTML += `
@@ -79,9 +81,24 @@ async function injectArtworkWidget() {
         await executeSearchAndDisplayResults();
     });
 
-    lastfmUploadButton.addEventListener('click', () => {
-        settings = { ...settings, userFixedArtworksCount: settings.userFixedArtworksCount + 1 }
+    lastfmUploadButton.addEventListener('click', async () => {
+        settings = {
+            ...settings,
+            userFixedArtworksCount: settings.userFixedArtworksCount + 1,
+            username
+        };
         saveSettings(settings);
+
+        if (settings.publishToLeaderboard && settings.username) {
+            try {
+                await performLeaderboardOperation("updateLeaderboard", { username: settings.username, artworksFixed: settings.userFixedArtworksCount });
+                extensionLog(`Successfully updated leaderboard with ${settings.userFixedArtworksCount.toLocaleString()} artworks added.`);
+            } catch (error) {
+                extensionError("Error updating leaderboard.", error);
+                // alert(`[Last.fm Missing Artwork Fixer] Artwork uploaded successfully, but there was an error updating your leaderboard count! Please try unselecting the leaderboard setting, saving, and turning it back on (hit Enter key/click OK to continue fixing).`);
+                // window.scrollTo(0, 0);
+            }
+        }
     });
 }
 
@@ -240,14 +257,14 @@ async function searchDiscogs(searchQuery) {
     }
 
     return results
-        .filter(album => (album?.images?.edges?.at(0)?.node?.tiny?.sourceUrl?.length ?? 0) > 0)
+        .filter(album => (album?.images?.edges?.at(0)?.node?.thumbnail?.sourceUrl?.length ?? 0) > 0)
         .map(album => ({
             artist: album?.primaryArtists?.map(artist => artist.artist.name).join(', ') ?? 'Unknown Artist',
             album: album?.title ?? 'Unknown Album',
             releaseDate: album?.released,
             extraInfo: `${album?.country ?? ''} • ${album?.formats?.map(format => format.name).join(', ') ?? ''}`,
             trackCount: null,
-            artworkUrl: album?.images?.edges?.at(0)?.node?.tiny?.sourceUrl,
+            artworkUrl: album?.images?.edges?.at(0)?.node?.thumbnail?.sourceUrl,
             artistUrl: `https://www.discogs.com/artist/${album?.primaryArtists?.at(0)?.artist.discogsId ?? ''}`,
             albumUrl: `https://www.discogs.com${album?.siteUrl}`,
             id: `dc-${album.discogsId}`,
@@ -543,6 +560,22 @@ async function fetchImageBlob(url) {
 async function fetchArtworkResultsFromBackgroundScript(searchQuery, backgroundScriptFunction) {
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage({ action: backgroundScriptFunction, searchQuery },
+      (response) => {
+        if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+        } else if (response && response.success) {
+            resolve(response.results);
+        } else {
+            reject(response?.error || "Unknown error");
+        }
+      }
+    );
+  });
+}
+
+async function performLeaderboardOperation(operation, payload = null) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({ action: operation, payload },
       (response) => {
         if (chrome.runtime.lastError) {
             reject(chrome.runtime.lastError);

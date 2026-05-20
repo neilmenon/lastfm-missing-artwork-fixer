@@ -41,6 +41,8 @@
     },
     "loadingGifUrl": "https://i.imgur.com/al6rQhx.gif",
     "bandcampImageUrl": "https://f4.bcbits.com/img/a",
+    "leaderboardAPIUrl": "https://api.neilmenon.com/lfmmaf-leaderboard/",
+    "leaderboardAPIHeader": "2i8GivN4miVZyNXT0G1+ORbpwzYk/xeo44Yhu50RjFE=",
     "countryOptions": [
         {
             "label": "United Arab Emirates",

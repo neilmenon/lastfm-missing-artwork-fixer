@@ -27,3 +27,31 @@ html, body {
 #extensionVersion {
     text-decoration: none;
 }
+
+.tooltip { 
+    pointer-events: none;
+}
+
+.card-body {
+    padding: 0.5rem!important;
+}
+
+.nav-link {
+    padding: 0rem 0.5rem!important;
+    color: var(--bs-body-color)!important;
+}
+
+tfoot {
+    font-size: 0.9rem;
+}
+
+#leaderboardTableContainer, #settingsForm {
+    height: 356px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+thead {
+    position: sticky;
+    top: 0;
+}

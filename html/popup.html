@@ -9,12 +9,12 @@
 <body class="p-0">
     <div class="container p-0">
         <div class="card border-secondary">
-            <div class="card-header d-flex justify-content-between">
+            <div class="card-header d-flex justify-content-between px-2">
                 <span>
                     Last.fm Missing Artwork Fixer
                     <a class="text-secondary text-center" id="extensionVersion" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom" title="View release in GitHub"></a>
                 </span>
-                <div class="d-flex gap-2 align-items-center">
+                <div class="d-flex gap-1 align-items-center">
                     <div class="btn-group" role="group" aria-label="Toolbar with theme preferences">
                         <input type="radio" class="btn-check" name="extensionTheme" id="extensionTheme1" autocomplete="off" value="darkly">
                         <label class="btn btn-secondary btn-mini" for="extensionTheme1" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Dark mode">
@@ -31,77 +31,115 @@
                             <i class="bi bi-gear-fill"></i>
                         </label>
                     </div>
-                    <span class="badge bg-success d-flex gap-1 align-items-center" data-bs-toggle="tooltip" title="This is the number of missing artworks you've fixed (across all your devices if synced). Thanks for helping to make Last.fm data more complete for yourself and other users!">
+                    <span class="badge bg-success d-flex gap-1 align-items-center" data-bs-toggle="tooltip" title="This is the number of missing artworks you've fixed (across all your devices if synced). Thanks for helping make Last.fm data more complete for yourself and others!">
                         <i class="bi bi-check-circle-fill"></i>
                         <span id="userFixedArtworksCount"></span>
                     </span>
                 </div>
             </div>
             <div class="card-body">
-                <form id="settingsForm">
-                    <div class="form-group mb-2">
-                        <label for="selectedArtworkSource" class="form-label">Default Artwork Source</label>
-                        <select id="selectedArtworkSource" class="form-select"></select>
+                <!-- Tabs -->
+                <ul class="nav nav-tabs nav-fill justify-content-center" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#settings" aria-selected="true" role="tab">Settings</a>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <a class="nav-link" data-bs-toggle="tab" href="#leaderboard" aria-selected="false" role="tab" tabindex="-1" id="leaderboardTab">Leaderboard</a>
+                    </li>
+                </ul>
+                <div class="tab-content py-1">
+                    <!-- Tab: Settings -->
+                    <div class="tab-pane fade active show" id="settings" role="tabpanel">
+                        <form id="settingsForm">
+                            <div class="row">
+                                <div class="col">
+                                    <div class="form-group mb-2">
+                                        <label for="selectedArtworkSource" class="form-label mb-1">Default Artwork Source</label>
+                                        <select id="selectedArtworkSource" class="form-select form-select-sm"></select>
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <div class="form-group mb-2">
+                                        <label for="selectedCountry" class="form-label mb-1">Country</label>
+                                        <span data-bs-toggle="tooltip" title="This is used for the Apple Music search.">
+                                            <i class="bi bi-question-circle"></i>
+                                        </span>
+                                        <select id="selectedCountry" class="form-select form-select-sm"></select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group mb-2 d-none">
+                                <label for="selectedArtworkSize" class="form-label">Artwork Size (px)</label>
+                                <span data-bs-toggle="tooltip" title="This is the artwork size that will be fetched from the Artwork Source. The highest available size from the source will be fetched if less than this number.">
+                                    <i class="bi bi-question-circle"></i>
+                                </span>
+                                <input type="number" id="selectedArtworkSize" class="form-control" min="800" max="10000">
+                                <div class="invalid-feedback">Invalid artwork size.</div>
+                            </div>
+                            <div class="form-group form-check form-switch mb-2">
+                                <input type="checkbox" class="form-check-input" id="populateTitleField">
+                                <label class="form-check-label" for="populateTitleField">Populate Title Field</label>
+                                <span data-bs-toggle="tooltip" data-bs-placement="right" title="Auto populate title field on Last.fm image upload form with artist and album name.">
+                                    <i class="bi bi-question-circle"></i>
+                                </span>
+                            </div>
+                            <div class="form-group form-check form-switch mb-2">
+                                <input type="checkbox" class="form-check-input" id="populateDescriptionField">
+                                <label class="form-check-label" for="populateDescriptionField">Populate Description Field</label>
+                                <span data-bs-toggle="tooltip" data-bs-placement="right" title="Auto populate description field on Last.fm image upload form with artist and album name as well as release date if available.">
+                                    <i class="bi bi-question-circle"></i>
+                                </span>
+                            </div>
+                            <div class="form-group form-check form-switch mb-2">
+                                <input type="checkbox" class="form-check-input" id="highlightMissingArtworks">
+                                <label class="form-check-label" for="highlightMissingArtworks">Highlight Missing Artworks</label>
+                                <span data-bs-toggle="tooltip" data-bs-placement="right" title="Identify missing artworks with a red border and a button to fix them.">
+                                    <i class="bi bi-question-circle"></i>
+                                </span>
+                            </div>
+                            <div class="form-group form-check form-switch mb-2">
+                                <input type="checkbox" class="form-check-input" id="autoCloseUploadTabWhenArtworkUploaded">
+                                <label class="form-check-label" for="autoCloseUploadTabWhenArtworkUploaded">Auto-close Upload Tab</label>
+                                <span data-bs-toggle="tooltip" data-bs-placement="right" title="Once you upload an image via the extension-opened new tab, automatically close it to return to where you were on Last.fm.">
+                                    <i class="bi bi-question-circle"></i>
+                                </span>
+                            </div>
+                            <div class="form-group form-check form-switch mb-2">
+                                <input type="checkbox" class="form-check-input" id="autoFocusNextMissingArtworkButton">
+                                <label class="form-check-label" for="autoFocusNextMissingArtworkButton">Auto-focus Next Missing Artwork Button</label>
+                                <span data-bs-toggle="tooltip" data-bs-placement="right" title="If you're fixing multiple missing artworks on one page, the extension will scroll to and auto-focus the next missing artwork button so you don't have to find it on the page and can simply hit the Enter (↩) button to continue fixing. This way you can fix multiple artworks completely using the keyboard.">
+                                    <i class="bi bi-question-circle"></i>
+                                </span>
+                            </div>
+                            <div class="form-group form-check form-switch mb-2">
+                                <input type="checkbox" class="form-check-input" id="autoFocusOnPageLoad">
+                                <label class="form-check-label" for="autoFocusOnPageLoad">Auto-focus on Page Load</label>
+                                <span data-bs-toggle="tooltip" data-bs-placement="right" title="Auto-focus and scroll to the first missing artwork button on the page when it loads so you can hit the Enter (↩) button to start fixing.">
+                                    <i class="bi bi-question-circle"></i>
+                                </span>
+                            </div>
+                            <div class="form-group form-check form-switch mb-2">
+                                <input type="checkbox" class="form-check-input" id="autoFocusNextPageButton">
+                                <label class="form-check-label" for="autoFocusNextPageButton">Auto-focus Next Page Button</label>
+                                <span data-bs-toggle="tooltip" data-bs-placement="right" title="⚠️ Not to be left on for regular browsing! When on a page with paginated results, auto-focus the next page button at the bottom after all artworks have been fixed, or if none exist. Useful for bulk fixing on library or artist pages.">
+                                    <i class="bi bi-question-circle"></i>
+                                </span>
+                            </div>
+                            <div class="form-group form-check form-switch mb-2">
+                                <input type="checkbox" class="form-check-input" id="publishToLeaderboard">
+                                <label class="form-check-label" for="publishToLeaderboard">Publish to Leaderboard</label>
+                                <span data-bs-toggle="tooltip" data-bs-placement="right" title="Publishes your Last.fm username, number of artworks you've fixed using the extension, and the timestamp of your most recent fix to the Leaderboard tab, after your next fix. Turned off by default.">
+                                    <i class="bi bi-question-circle"></i>
+                                </span>
+                            </div>
+                            <div class="btn btn-primary btn-sm w-100" id="saveSettingsButton">Save settings</div>
+                        </form>
                     </div>
-                    <div class="form-group mb-2 d-none">
-                        <label for="selectedArtworkSize" class="form-label">Artwork Size (px)</label>
-                        <span data-bs-toggle="tooltip" title="This is the artwork size that will be fetched from the Artwork Source. The highest available size from the source will be fetched if less than this number.">
-                            <i class="bi bi-question-circle"></i>
-                        </span>
-                        <input type="number" id="selectedArtworkSize" class="form-control" min="800" max="10000">
-                        <div class="invalid-feedback">Invalid artwork size.</div>
+                    <!-- Tab: Leaderboard -->
+                    <div class="tab-pane fade" id="leaderboard" role="tabpanel">
+                        <div id="leaderboardTableContainer"></div>
                     </div>
-                    <div class="form-group mb-3">
-                        <label for="selectedCountry" class="form-label">Country</label>
-                        <span data-bs-toggle="tooltip" title="This is used for the Apple Music search.">
-                            <i class="bi bi-question-circle"></i>
-                        </span>
-                        <select id="selectedCountry" class="form-select"></select>
-                    </div>
-                    <div class="form-group form-check form-switch mb-2">
-                        <input type="checkbox" class="form-check-input" id="populateTitleField">
-                        <label class="form-check-label" for="populateTitleField">Populate Title Field</label>
-                        <span data-bs-toggle="tooltip" data-bs-placement="right" title="Auto populate title field on Last.fm image upload form with artist and album name.">
-                            <i class="bi bi-question-circle"></i>
-                        </span>
-                    </div>
-                    <div class="form-group form-check form-switch mb-2">
-                        <input type="checkbox" class="form-check-input" id="populateDescriptionField">
-                        <label class="form-check-label" for="populateDescriptionField">Populate Description Field</label>
-                        <span data-bs-toggle="tooltip" data-bs-placement="right" title="Auto populate description field on Last.fm image upload form with artist and album name as well as release date if available.">
-                            <i class="bi bi-question-circle"></i>
-                        </span>
-                    </div>
-                    <div class="form-group form-check form-switch mb-2">
-                        <input type="checkbox" class="form-check-input" id="highlightMissingArtworks">
-                        <label class="form-check-label" for="highlightMissingArtworks">Highlight Missing Artworks</label>
-                        <span data-bs-toggle="tooltip" data-bs-placement="right" title="Identify missing artworks with a red border and a button to fix them.">
-                            <i class="bi bi-question-circle"></i>
-                        </span>
-                    </div>
-                    <div class="form-group form-check form-switch mb-2">
-                        <input type="checkbox" class="form-check-input" id="autoCloseUploadTabWhenArtworkUploaded">
-                        <label class="form-check-label" for="autoCloseUploadTabWhenArtworkUploaded">Auto-close Upload Tab</label>
-                        <span data-bs-toggle="tooltip" data-bs-placement="right" title="Once you upload an image via the extension-opened new tab, automatically close it to return to where you were on Last.fm.">
-                            <i class="bi bi-question-circle"></i>
-                        </span>
-                    </div>
-                    <div class="form-group form-check form-switch mb-2">
-                        <input type="checkbox" class="form-check-input" id="autoFocusNextMissingArtworkButton">
-                        <label class="form-check-label" for="autoFocusNextMissingArtworkButton">Auto-focus Next Missing Artwork Button</label>
-                        <span data-bs-toggle="tooltip" data-bs-placement="right" title="If you're fixing multiple missing artworks on one page, the extension will scroll to and auto-focus the next missing artwork button so you don't have to find it on the page and can simply hit the Enter (↩) button to continue fixing. This way you can fix multiple artworks completely using the keyboard.">
-                            <i class="bi bi-question-circle"></i>
-                        </span>
-                    </div>
-                    <div class="form-group form-check form-switch mb-2">
-                        <input type="checkbox" class="form-check-input" id="autoFocusOnPageLoad">
-                        <label class="form-check-label" for="autoFocusOnPageLoad">Auto-focus on Page Load</label>
-                        <span data-bs-toggle="tooltip" data-bs-placement="right" title="Auto-focus and scroll to the first missing artwork button on the page when it loads so you can hit the Enter (↩) button to start fixing.">
-                            <i class="bi bi-question-circle"></i>
-                        </span>
-                    </div>
-                    <div class="btn btn-primary w-100" id="saveSettingsButton">Save settings</div>
-                </form>
+                </div>
                 <hr class="my-1">
                 <div class="d-flex gap-2 align-items-center fs-3 justify-content-center">
                     <a class="text-secondary" href="https://github.com/neilmenon/lastfm-missing-artwork-fixer" target="_blank" data-bs-toggle="tooltip" data-bs-placement="top" title="Open in Github">
@@ -118,6 +156,7 @@
             </div>
         </div>
         <script src="/js/vendor/bootstrap.bundle.min.js"></script>
+        <script src="/js/vendor/moment.min.js"></script>
         <script src="/js/popup.js"></script>
     </div>
 </body>

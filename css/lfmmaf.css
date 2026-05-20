@@ -141,7 +141,8 @@
 
 .lfmmaf-upload-button:focus,
 .lfmmaf-lastfm-upload-image-button:focus,
-.lfmmaf-missing-artwork-button:focus {
+.lfmmaf-missing-artwork-button:focus,
+li[aria-current="page"] + li.pagination-page > a:focus {
     border: 2px solid #000;
 }
 

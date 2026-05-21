@@ -28,8 +28,9 @@ Help make Last.fm artwork cleaner and more complete for yourself and other Last.
 - ✅ Auto-attach an album image via direct image link instead of needing to download the image and select it from your computer.
 - ✅ Auto-populates Title and Description fields.
 
-📌 On extension settings:
+📌 On extension popup:
 - ✅ View the total number of artworks you've fixed since you installed the extension for some well-deserved recognition for your efforts.
+- ✅ View a leaderboard of artworks fixed across users using the extension. This feature is opt-in.
 - ✅ All of the functionality above is configurable by clicking on the extension icon.
 - ✅ Configurable theme (dark/light/auto) for extension settings pop-up (so you're not blinded when you're fixing artworks at 2am, right?).
 

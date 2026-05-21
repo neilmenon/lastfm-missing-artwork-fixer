@@ -112,7 +112,19 @@ async function initialize() {
                 <output class="spinner-border spinner-border-sm" role="status"></output>
             </div>
         `;
-        const leaderboardResults = await performLeaderboardOperation("fetchLeaderboard");
+
+        let leaderboardResults;
+        try {
+            leaderboardResults = await performLeaderboardOperation("fetchLeaderboard");
+        } catch (error) {
+            console.error("Error fetching leaderboard data:", error);
+            leaderboardTableContainer.innerHTML = `
+                <div class="text-center" role="alert">
+                    <em>Failed to load leaderboard data. This is usually temporary. Please re-open popup and try again.</em>
+                </div>
+            `;
+            return;
+        }
 
         if ((leaderboardResults?.length ?? 0) >= 0) {
             leaderboardTableContainer.innerHTML = `

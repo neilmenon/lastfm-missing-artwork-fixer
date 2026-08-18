@@ -46,7 +46,7 @@ tfoot {
 }
 
 #leaderboardTableContainer, #settingsForm {
-    height: 356px;
+    height: 388px;
     overflow-y: auto;
     overflow-x: hidden;
 }

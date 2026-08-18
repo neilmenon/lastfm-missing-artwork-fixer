@@ -53,8 +53,15 @@
 
 .lffmaf-result-entry > img {
     width: 220px;
-    height: 220px;
     border: 0.25px solid #f1f1f1;;
+}
+
+.lffmaf-result-entry-album > img {
+    height: 220px;
+}
+
+.lffmaf-result-entry-artist > img {
+    height: auto;
 }
 
 .lffmaf-result-info {
@@ -216,6 +223,19 @@ li[aria-current="page"] + li.pagination-page > a:focus {
     justify-content: flex-end;
     align-items: center;
     gap: 0.25rem;
+}
+
+#lfmmaf-google-images-search-link {
+    position: absolute;
+    top: -1px;
+    right: 92px;
+    float: right;
+    transition: 0.25s;
+}
+
+#lfmmaf-google-images-search-link > img {
+    width: 22px;
+    height: auto;
 }
 
 @media (max-width: 768px) {

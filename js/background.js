@@ -1,5 +1,9 @@
 let constants;
 
+// TODO: investigate race condition on tab selection where these are not loaded from constants in time
+const leaderboardAPIUrl = 'https://api.neilmenon.com/lfmmaf-leaderboard/';
+const leaderboardAPIHeader = '2i8GivN4miVZyNXT0G1+ORbpwzYk/xeo44Yhu50RjFE=';
+
 async function init() {
     constants = await getConstants();
 }
@@ -77,8 +81,36 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 
-    if (request.action === "fetchDiscogsImageUrl") {
+    if (request.action === "fetchDiscogsReleaseImageUrl") {
         fetchFullSizeImageUrlFromDiscogsReleaseLink(request.discogsReleaseLink)
+            .then(url => sendResponse({ success: true, url }))
+            .catch(error => sendResponse({ success: false, error: error.message }));
+        return true;
+    }
+
+    if (request.action === "fetchArtistBandcamp") {
+        fetchArtistBandcamp(request.searchQuery)
+            .then(results => sendResponse({ success: true, results }))
+            .catch(error => sendResponse({ success: false, error: error.message }));
+        return true;
+    }
+
+    if (request.action === "fetchArtistDeezer") {
+        fetchArtistDeezer(request.searchQuery)
+            .then(results => sendResponse({ success: true, results }))
+            .catch(error => sendResponse({ success: false, error: error.message }));
+        return true;
+    }
+
+    if (request.action === "fetchArtistDiscogs") {
+        fetchArtistDiscogs(request.searchQuery)
+            .then(results => sendResponse({ success: true, results }))
+            .catch(error => sendResponse({ success: false, error: error.message }));
+        return true;
+    }
+
+    if (request.action === "fetchDiscogsArtistImageUrl") {
+        fetchFullSizeImageUrlFromDiscogsArtistLink(request.discogsArtistLink)
             .then(url => sendResponse({ success: true, url }))
             .catch(error => sendResponse({ success: false, error: error.message }));
         return true;
@@ -106,6 +138,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 });
 
+// album artwork fetch methods
 async function fetchBandcamp(searchQuery) {
     const url = constants.artworkSourceOptions.find(source => source.name === 'Bandcamp').searchUrl;
     const body = {
@@ -162,9 +195,66 @@ async function fetchFullSizeImageUrlFromDiscogsReleaseLink(discogsReleaseLink) {
     return match ? match[1] : null;
 }
 
+// artist image fetch methods
+async function fetchArtistBandcamp(searchQuery) {
+    const url = constants.artworkSourceOptions.find(source => source.name === 'Bandcamp').artistSearchUrl;
+    const body = {
+        search_text: searchQuery,
+        search_filter: "b",
+        fan_id: null,
+        full_page: false
+    };
+
+    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+
+    const results = (await response.json());
+    return results?.auto?.results ?? [];
+}
+
+async function fetchArtistDeezer(searchQuery) {
+    const url = constants.artworkSourceOptions.find(source => source.name === 'Deezer').artistSearchUrl;
+    const response = await fetch(`${url}${encodeURIComponent(searchQuery)}`);
+
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+
+    const results = (await response.json());
+    return results?.data ?? [];
+}
+
+async function fetchArtistDiscogs(searchQuery) {
+    const url = constants.artworkSourceOptions.find(source => source.name === 'Discogs').artistSearchUrl;
+    const response = await fetch(`${url}${encodeURIComponent(searchQuery)}`);
+
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+
+    const results = (await response.json());
+    return results?.autocomplete ?? [];
+}
+
+async function fetchFullSizeImageUrlFromDiscogsArtistLink(discogsArtistLink) {
+    const response = await fetch(discogsArtistLink);
+
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+    }
+
+    const htmlText = await response.text();
+
+    const match = htmlText.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["'][^>]*>/i);
+    return match ? match[1] : null;
+}
+
 async function fetchLeaderboard() {
-    const response = await fetch(constants.leaderboardAPIUrl, {
-        headers: { 'Content-Type': 'application/json', 'Authorization': constants.leaderboardAPIHeader }
+    const response = await fetch(leaderboardAPIUrl, {
+        headers: { 'Content-Type': 'application/json', 'Authorization': leaderboardAPIHeader }
     });
 
     if (!response.ok) {
@@ -176,9 +266,9 @@ async function fetchLeaderboard() {
 }
 
 async function updateLeaderboard(body) {
-    const response = await fetch(constants.leaderboardAPIUrl, {
+    const response = await fetch(leaderboardAPIUrl, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': constants.leaderboardAPIHeader },
+        headers: { 'Content-Type': 'application/json', 'Authorization': leaderboardAPIHeader },
         body: JSON.stringify(body),
     });
 
@@ -190,9 +280,9 @@ async function updateLeaderboard(body) {
 }
 
 async function deleteFromLeaderboard(body) {
-    const response = await fetch(constants.leaderboardAPIUrl, {
+    const response = await fetch(leaderboardAPIUrl, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json', 'Authorization': constants.leaderboardAPIHeader },
+        headers: { 'Content-Type': 'application/json', 'Authorization': leaderboardAPIHeader },
         body: JSON.stringify(body),
     });
 }

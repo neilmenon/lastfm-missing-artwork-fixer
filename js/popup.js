@@ -36,6 +36,7 @@ async function initialize() {
     document.getElementById('populateTitleField').checked = settings.populateTitleField;
     document.getElementById('populateDescriptionField').checked = settings.populateDescriptionField;
     document.getElementById('highlightMissingArtworks').checked = settings.highlightMissingArtworks;
+    document.getElementById('highlightMissingArtistImages').checked = settings.highlightMissingArtistImages;
     document.getElementById('autoCloseUploadTabWhenArtworkUploaded').checked = settings.autoCloseUploadTabWhenArtworkUploaded;
     document.getElementById('autoFocusNextMissingArtworkButton').checked = settings.autoFocusNextMissingArtworkButton;
     document.getElementById('autoFocusOnPageLoad').checked = settings.autoFocusOnPageLoad;
@@ -62,6 +63,7 @@ async function initialize() {
             populateTitleField: document.getElementById('populateTitleField').checked,
             populateDescriptionField: document.getElementById('populateDescriptionField').checked,
             highlightMissingArtworks: document.getElementById('highlightMissingArtworks').checked,
+            highlightMissingArtistImages: document.getElementById('highlightMissingArtistImages').checked,
             autoCloseUploadTabWhenArtworkUploaded: document.getElementById('autoCloseUploadTabWhenArtworkUploaded').checked,
             autoFocusNextMissingArtworkButton: document.getElementById('autoFocusNextMissingArtworkButton').checked,
             autoFocusOnPageLoad: document.getElementById('autoFocusOnPageLoad').checked,

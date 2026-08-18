@@ -6,6 +6,7 @@ let settings = {},
     artworkWidgetContainer = null,
     searchInputElement = null,
     sourceSelectElement = null,
+    sources = [],
     resultsContainer = null,
     messagesContainer = null,
     results = null,
@@ -14,8 +15,10 @@ let settings = {},
     lastfmUploadButton = null,
     lastfmArtist = null,
     lastfmAlbum = null,
+    isArtistUploadPage = false,
     buttonFocusedOnInitialLoad = false,
-    username = null
+    username = null,
+    googleImagesSearchLinkElement = null
 ;
 
 async function uploadArtworkPage() {
@@ -54,10 +57,19 @@ async function injectArtworkWidget() {
     lastfmUploadButton = document.querySelector('button[type="submit"].btn-primary');
     lastfmUploadButton.classList.add('lfmmaf-lastfm-upload-image-button');
     username = document.querySelector(".username")?.innerText?.trim() || null;
+    googleImagesSearchLinkElement = document.getElementById('lfmmaf-google-images-search-link');
 
-    for (const source of constants.artworkSourceOptions) {
+    const filterAvailableSourcesKey = isArtistUploadPage ? "artistSearchUrl" : "searchUrl"
+    sources = constants.artworkSourceOptions.filter(source => source[filterAvailableSourcesKey] || source.shortName === 'ALL')
+
+    const defaultSource = sources.map(source => source.name).includes(settings.selectedArtworkSource)
+        ? settings.selectedArtworkSource
+        : sources.find(source => source.shortName === 'ALL').name
+    ;
+
+    for (const source of sources) {
         sourceSelectElement.innerHTML += `
-            <option value="${source.name}" title="${source.name}" ${settings.selectedArtworkSource === source.name ? 'selected' : ''}>
+            <option value="${source.name}" title="${source.name}" ${defaultSource === source.name ? 'selected' : ''}>
                 ${source.shortName}
             </option>
         `;
@@ -105,18 +117,27 @@ async function injectArtworkWidget() {
 function injectDefaultSearchQuery() {
     const searchQuery = `${ lastfmArtist ?? '' } ${ lastfmAlbum ?? '' }`
         .replaceAll('[Explicit]', '')
+        .replaceAll(' - Single', '')
+        .replaceAll(' - EP', '')
         .trim()
     ;
     searchInputElement.value = searchQuery
 }
 
 async function searchForArtwork(searchQuery) {
-    const searchFunctionsMap = {
-        "Apple Music": searchAppleMusic,
-        "Bandcamp": searchBandcamp,
-        "Deezer": searchDeezer,
-        "Discogs": searchDiscogs,
-    }
+    const searchFunctionsMap = isArtistUploadPage ?
+        {
+            "Bandcamp": searchArtistBandcamp,
+            "Deezer": searchArtistDeezer,
+            "Discogs": searchArtistDiscogs,
+        } : 
+        {
+            "Apple Music": searchAppleMusic,
+            "Bandcamp": searchBandcamp,
+            "Deezer": searchDeezer,
+            "Discogs": searchDiscogs,
+        }
+    ;
 
     let results = [];
     let failedSources = [];
@@ -136,12 +157,15 @@ async function searchForArtwork(searchQuery) {
         results = await searchFunctionsMap[sourceSelectElement.value](searchQuery);
     }
 
+    googleImagesSearchLinkElement.href = constants.googleImagesSearchUrl + encodeURIComponent(searchInputElement.value);
+
     if (results) {
         if (!results.length) {
             if (!searchInputElement.value?.trim()?.length) {
                 clearMessageContainer();
             } else {
-                showMessage(`No results found for the given search terms. Try another artwork source. Or, <a href="${constants.googleImagesSearchUrl + searchInputElement.value}" target="_blank">here's a quick link</a> to search on Google Images. If you find something there, hit <strong>Copy image address</strong> and paste it in the box above, we'll auto-fetch and attach it for you!`, 'info');
+                showMessage(`No results found for the given search terms. Try another source. Or, search on Google Images by clicking the icon above. If you find something there, hit <strong>Copy image address</strong> and paste it in the box above, we'll auto-fetch and attach it for you!`, 'info');
+                googleImagesSearchLinkElement.focus();
             }
         } else {
             const sourceSelectedText = sourceSelectElement.value === 'All Sources Combined' ? 'all sources' : sourceSelectElement.value;
@@ -272,6 +296,91 @@ async function searchDiscogs(searchQuery) {
     }));
 }
 
+async function searchArtistBandcamp(searchQuery) {
+    extensionLog(`Searching Bandcamp for artist with query: ${searchQuery}`);
+
+    const artworkSource = constants.artworkSourceOptions.find(source => source.name === 'Bandcamp');
+    const results = await fetchArtworkResultsFromBackgroundScript(searchQuery, 'fetchArtistBandcamp')
+        .catch(error => {
+            extensionError("Error fetching Bandcamp artists.", error);
+            return null;
+        });
+
+    if (!results) {
+        return;
+    }
+
+    return results.filter(result => result.img_id).map(artist => ({
+        artist: artist.name,
+        album: null,
+        releaseDate: null,
+        trackCount: null,
+        artworkUrl: `https://f4.bcbits.com/img/00${artist.img_id}_10.jpg`,
+        artistUrl: artist.item_url_root,
+        albumUrl: null,
+        id: `bc-${artist.id}`,
+        source: artworkSource,
+    }));
+}
+
+async function searchArtistDeezer(searchQuery) {
+    extensionLog(`Searching Deezer for artist with query: ${searchQuery}`);
+    
+    const artworkSource = constants.artworkSourceOptions.find(source => source.name === 'Deezer');
+    const results = await fetchArtworkResultsFromBackgroundScript(searchQuery, 'fetchArtistDeezer')
+        .catch(error => {
+            extensionError("Error fetching Deezer artwork.", error);
+            return null;
+        });
+
+    if (!results) {
+        return;
+    }
+
+    return results.filter(result => !result.picture_xl.includes('artist//')).map(artist => ({
+        artist: artist.name,
+        album: null,
+        releaseDate: null,
+        trackCount: null,
+        extraInfo: `Fans: ${artist.nb_fan?.toLocaleString()} • Releases: ${artist.nb_album?.toLocaleString()}`,
+        artworkUrl: artist.picture_xl,
+        artistUrl: artist.link,
+        albumUrl: null,
+        id: `dz-${artist.id}`,
+        source: artworkSource,
+    }));
+}
+
+async function searchArtistDiscogs(searchQuery) {
+    extensionLog(`Searching Discogs for artist with query: ${searchQuery}`);
+    
+    const artworkSource = constants.artworkSourceOptions.find(source => source.name === 'Discogs');
+    const results = await fetchArtworkResultsFromBackgroundScript(searchQuery, 'fetchArtistDiscogs')
+        .catch(error => {
+            extensionError("Error fetching Discogs artwork.", error);
+            return null;
+        });
+
+    if (!results) {
+        return;
+    }
+
+    return results
+        .filter(artist => (artist?.images?.edges?.at(0)?.node?.thumbnail?.sourceUrl?.length ?? 0) > 0)
+        .map(artist => ({
+            artist: artist.name,
+            album: null,
+            releaseDate: null,
+            extraInfo: null,
+            trackCount: null,
+            artworkUrl: artist?.images?.edges?.at(0)?.node?.thumbnail?.sourceUrl,
+            artistUrl: `https://www.discogs.com/${artist.siteUrl}`,
+            albumUrl: null,
+            id: `dc-${artist.discogsId}`,
+            source: artworkSource,
+    }));
+}
+
 function displayResults() {
     let resultsHTML = '';
     for (const result of results) {
@@ -280,27 +389,39 @@ function displayResults() {
         const trackCountText = result.trackCount ? `${result.trackCount} track${result.trackCount == 1 ? '' : 's'}` : '';
         const extraInfoText = result.extraInfo ?? '';
         const subTitle = `<div class="lfmmaf-result-subtitle-text">${ [releaseDateText, trackCountText, extraInfoText].filter(x => x.length).join(' • ') }&nbsp;</div>`;
+        const imgTitle = isArtistUploadPage ? `Image for ${result.artist}` : `Artwork for ${result.artist} - ${result.album}`;
 
         const fullSizeDiscogsMessage = result.source.name === 'Discogs' ? `<div class="lfmmaf-discogs-fullsize-message" id="discogs-message-${result.id}">Full size image will be fetched from Discogs if this image is selected.</div>` : '';
 
+        const resultTitleInfoMain = isArtistUploadPage ? 
+        `
+            <div class="lfmmaf-result-title-text">
+                <a tabindex="-1" href="${result.artistUrl}" target="_blank" title="Open ${result.artist} in ${result.source.name}" class="lfmmaf-link">${result.artist}</a>
+                <img src="${result.source.iconUrl}" title="Source: ${result.source.name}" class="lfmmaf-source-icon">
+            </div>
+        ` : 
+        `
+            <div class="lfmmaf-result-title-text">
+                <a tabindex="-1" href="${result.albumUrl}" target="_blank" title="Open ${result.album} in ${result.source.name}" class="lfmmaf-link">${result.album}</a>
+                <img src="${result.source.iconUrl}" title="Source: ${result.source.name}" class="lfmmaf-source-icon">
+            </div>
+            <div>
+                <a tabindex="-1" href="${result.artistUrl}" target="_blank" title="Open ${result.artist} in ${result.source.name}" class="lfmmaf-link">${result.artist}</a>
+            </div>
+        `;
+
         resultsHTML += `
-            <div class="lffmaf-result-entry">
+            <div class="lffmaf-result-entry lffmaf-result-entry-${isArtistUploadPage ? 'artist' : 'album'}">
                 ${fullSizeDiscogsMessage}
                 <img 
                     src="${result.artworkUrl}"
-                    title="Artwork for ${result.artist} - ${result.album}"
+                    title="${imgTitle}"
                 >
-                <button class="lfmmaf-upload-button" title="Select this artwork to upload" data-lfmmaf-album-id="${result.id}">
+                <button class="lfmmaf-upload-button" title="Select this image to upload" data-lfmmaf-result-id="${result.id}">
                     <img src="${constants.lastfmIconUrls.add}">
                 </button>
                 <div class="lffmaf-result-info">
-                    <div class="lfmmaf-result-title-text">
-                        <a tabindex="-1" href="${result.albumUrl}" target="_blank" title="Open ${result.album} in ${result.source.name}" class="lfmmaf-link">${result.album}</a>
-                        <img src="${result.source.iconUrl}" title="Source: ${result.source.name}" class="lfmmaf-source-icon">
-                    </div>
-                    <div>
-                        <a tabindex="-1" href="${result.artistUrl}" target="_blank" title="Open ${result.artist} in ${result.source.name}" class="lfmmaf-link">${result.artist}</a>
-                    </div>
+                    ${resultTitleInfoMain}
                     ${subTitle}
                 </div>
             </div> 
@@ -365,15 +486,15 @@ function listenForArtworkSelection() {
     resultsContainer.addEventListener('click', (event) => {
         event.preventDefault();
         if (event.target.matches('.lfmmaf-upload-button')) {
-            selectArtworkByAlbumId(event.target.dataset?.lfmmafAlbumId, event.target);
+            selectArtworkById(event.target.dataset?.lfmmafResultId, event.target);
         }
     });
 }
 
-async function selectArtworkByAlbumId(albumId, clickedElement) {
-    const selectedResult = results?.find(result => result.id === albumId);
+async function selectArtworkById(resultId, clickedElement) {
+    const selectedResult = results?.find(result => result.id === resultId);
     if (!selectedResult) {
-        extensionError(`User clicked select button on album with ID: ${albumId}, but no entry was found in results list!`);
+        extensionError(`User clicked select button on album with ID: ${resultId}, but no entry was found in results list!`);
         return;
     }
     extensionLog(`User selected ${selectedResult.artist} - ${selectedResult.album} for upload. Fetching external image to upload.`);
@@ -387,11 +508,15 @@ async function selectArtworkByAlbumId(albumId, clickedElement) {
         const imageElement = document.querySelector(`img[src="${selectedResult.artworkUrl}"]`);
         imageElement.src = constants.loadingGifUrl;
 
-        const fullSizeImageUrl = await fetchDiscogsFullSizeImageUrl(selectedResult.albumUrl)
+        const fullSizeImageUrl = await (
+            isArtistUploadPage ? fetchDiscogsFullSizeArtistImageUrl(selectedResult.artistUrl) :
+            fetchDiscogsFullSizeReleaseImageUrl(selectedResult.albumUrl)
+        )
             .catch(error => {
                 extensionError("Error fetching full size image from Discogs.", error);
                 return null;
-            });
+            })
+        ;
 
         if (!fullSizeImageUrl) {
             showMessage("There was an issue fetching the full size image from Discogs. Please try again.", 'danger');
@@ -401,12 +526,12 @@ async function selectArtworkByAlbumId(albumId, clickedElement) {
 
         selectedResult.artworkUrl = fullSizeImageUrl;
         imageElement.src = fullSizeImageUrl;
-        showMessage(`Successfully fetched full-size image URL from Discogs release page. `, 'success');
+        showMessage(`Successfully fetched full-size image URL from Discogs page. `, 'success');
     }
 
     try {
         const blob = await fetchImageBlob(selectedResult.artworkUrl);
-        const file = new File([blob], `${selectedResult.artist} - ${selectedResult.album}.jpg`, { type: blob.type });
+        const file = new File([blob], `${selectedResult.artist}${selectedResult.album ? ` - ${selectedResult.album}` : ''}.jpg`, { type: blob.type });
 
         const fileSizeHuman = (file.size / (1024 * 1024)).toFixed(2) + " MB";
         if (file.size > 5 * 1024 * 1024) {
@@ -437,12 +562,12 @@ async function selectArtworkByAlbumId(albumId, clickedElement) {
         const fileInputLabel = document.querySelector('.btn-file-label');
         fileInputLabel.innerHTML = `File selected for upload, ${fileSizeHuman}${imageDimensions ? `, ${imageDimensions.width}x${imageDimensions.height}` : ''}.`
 
-        if (settings.populateTitleField) {
+        if (settings.populateTitleField && !isArtistUploadPage) {
             const lastfmTitleElement = document.getElementById('id_title');
             lastfmTitleElement.value = `${selectedResult.artist} - ${selectedResult.album}`;
         }
 
-        if (settings.populateDescriptionField) {
+        if (settings.populateDescriptionField && !isArtistUploadPage) {
             const lastfmDescriptionElement = document.getElementById('id_description');
             const releaseDateMoment = moment(selectedResult.releaseDate);
             const isDateValid = selectedResult.releaseDate && releaseDateMoment.isValid();
@@ -484,7 +609,7 @@ async function fetchAndPopulateImageFromLink() {
             return;
         }
 
-        const fileName = `${lastfmArtist} - ${lastfmAlbum}.${extension}`;
+        const fileName = `${lastfmArtist}${lastfmAlbum ? ` - ${lastfmAlbum}` : ''}.${extension}`;
         const file = new File([blob], fileName, { type: mimeType });
 
         const fileSizeHuman = (file.size / (1024 * 1024)).toFixed(2) + " MB";
@@ -494,6 +619,8 @@ async function fetchAndPopulateImageFromLink() {
             hideLoadingPulse();
             return;
         }
+
+        const imageDimensions = await getImageDimensionsFromBlob(blob).catch(() => null);
 
         const dataTransfer = new DataTransfer();
         dataTransfer.items.add(file);
@@ -505,14 +632,14 @@ async function fetchAndPopulateImageFromLink() {
         fileInputContainer.classList.add('lfmmaf-file-input-disabled');
 
         const fileInputLabel = document.querySelector('.btn-file-label');
-        fileInputLabel.innerHTML = `File selected for upload, ${fileSizeHuman}.`
+        fileInputLabel.innerHTML = `File selected for upload, ${fileSizeHuman}${imageDimensions ? `, ${imageDimensions.width}x${imageDimensions.height}` : ''}.`
 
-        if (settings.populateTitleField) {
+        if (settings.populateTitleField && !isArtistUploadPage) {
             const lastfmTitleElement = document.getElementById('id_title');
             lastfmTitleElement.value = `${lastfmArtist} - ${lastfmAlbum}`;
         }
 
-        if (settings.populateDescriptionField) {
+        if (settings.populateDescriptionField && !isArtistUploadPage) {
             const lastfmDescriptionElement = document.getElementById('id_description');
             lastfmDescriptionElement.value = `Artwork for ${lastfmAlbum} by ${lastfmArtist}.`
         }
@@ -521,9 +648,9 @@ async function fetchAndPopulateImageFromLink() {
             <div class="lffmaf-result-entry">
                 <img 
                     src="${searchInputElement.value}"
-                    title="Artwork for ${lastfmArtist} - ${lastfmAlbum}"
+                    title="Artwork for ${lastfmArtist || ''} - ${lastfmAlbum || ''}"
                 >
-                <button class="lfmmaf-upload-button lfmmaf-selected" title="Select this artwork to upload">
+                <button class="lfmmaf-upload-button lfmmaf-selected" title="Select this image to upload">
                     <img src="${constants.lastfmIconUrls.accept}">
                 </button>
             </div> 
@@ -589,9 +716,25 @@ async function performLeaderboardOperation(operation, payload = null) {
   });
 }
 
-async function fetchDiscogsFullSizeImageUrl(discogsReleaseLink) {
+async function fetchDiscogsFullSizeReleaseImageUrl(discogsReleaseLink) {
   return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage({ action: 'fetchDiscogsImageUrl', discogsReleaseLink },
+    chrome.runtime.sendMessage({ action: 'fetchDiscogsReleaseImageUrl', discogsReleaseLink },
+      (response) => {
+        if (chrome.runtime.lastError) {
+            reject(chrome.runtime.lastError);
+        } else if (response && response.success) {
+            resolve(response.url);
+        } else {
+            reject(response?.error || "Unknown error");
+        }
+      }
+    );
+  });
+}
+
+async function fetchDiscogsFullSizeArtistImageUrl(discogsArtistLink) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({ action: 'fetchDiscogsArtistImageUrl', discogsArtistLink },
       (response) => {
         if (chrome.runtime.lastError) {
             reject(chrome.runtime.lastError);
@@ -626,10 +769,12 @@ function scrollAndFocusUploadButton() {
 
 function showLoadingPulse() {
     loadingElement.style.opacity = '100';
+    googleImagesSearchLinkElement.style.opacity = '0';
 }
 
 function hideLoadingPulse() {
     loadingElement.style.opacity = '0';
+    googleImagesSearchLinkElement.style.opacity = '100';
 }
 
 function clearMessageContainer() {
@@ -676,15 +821,14 @@ async function saveSettings(newSettings) {
 setInterval(() => {
     chooseFileContainer = document.querySelector('.form-group--image');
     artworkWidgetContainer = document.getElementById('lfmmaf-widget');
-    lastfmArtist = document.querySelector("span[itemprop=byArtist] span[itemprop=name]")?.textContent?.trim();
-    lastfmAlbum = document.querySelector("h1.header-new-title[itemprop=name]")?.textContent?.trim();
+    const artistIfAlbumPage = document.querySelector("span[itemprop=byArtist] span[itemprop=name]")?.textContent?.trim();
+    const albumOrArtist = document.querySelector("h1.header-new-title[itemprop=name]")?.textContent?.trim();
+    isArtistUploadPage = !artistIfAlbumPage?.length;
+    lastfmArtist = isArtistUploadPage ? albumOrArtist : artistIfAlbumPage;
+    lastfmAlbum = isArtistUploadPage ? null : albumOrArtist;
 
-    if (chooseFileContainer && !artworkWidgetContainer) {
-        if (!lastfmAlbum?.length || !lastfmArtist?.length) {
-            extensionLog('Either artist or album is missing from page, this could be a non-album upload page. Skipping injection.');
-            return;
-        }
-        extensionLog("Found artwork upload form, initiating script.")
+    if (chooseFileContainer && !artworkWidgetContainer && lastfmArtist) {
+        extensionLog("Found image upload form, initiating script.")
         uploadArtworkPage();
     }
 }, 1000);

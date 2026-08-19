@@ -16,7 +16,7 @@ Help make Last.fm artwork cleaner and more complete for yourself and other Last.
 ## Features
 
 📌 On any Last.fm page:
-- ✅ Automatically identifies missing artwork on the Last.fm page you're on.
+- ✅ Automatically identifies missing artwork and artist images on the Last.fm page you're on.
 - ✅ Convenient button takes you directly to the upload page for that album.
 - ✅ Extension badge shows you the number of missing artworks on the current page.
 - ✅ After you fix the artwork, extension will bring you right back to where you were so you don't miss a beat.

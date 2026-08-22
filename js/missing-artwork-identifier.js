@@ -17,7 +17,7 @@ async function missingArtworkIdentifier() {
         missingImagesSelectors.push(`img[src*="${constants.missingArtistImageId}"]:not(span.gallery-preview-missing-image > img)`);
     }
 
-    const lastfmLinkSelector = 'a[href*="/music/"]';
+    const lastfmLinkSelector = 'a[href*="/music/"]:not(a[href*="/library/music/"])';
 
     setInterval(async () => {
         const imageElementsMissingArtwork = document.querySelectorAll(
@@ -78,7 +78,8 @@ async function missingArtworkIdentifier() {
             const checkInterval = setInterval(() => {
                 extensionLog(`Polling for new tab ${imageUploadLink} image upload and/or closure.`)
                 try {
-                    const isOnUploadedImagePage = !uploadTab.location.href.includes('/+images/upload') && uploadTab.location.href.includes('/+images/')
+                    const stillOnUploadPageIndicators = ['/+images/upload', '/+images/image-upload'];
+                    const isOnUploadedImagePage = !stillOnUploadPageIndicators.some(i => uploadTab.location.href.includes(i)) && uploadTab.location.href.includes('/+images/')
 
                     if (isOnUploadedImagePage) {
                         const imageIDUploaded = uploadTab.location.href?.split('/').pop();
@@ -94,14 +95,11 @@ async function missingArtworkIdentifier() {
                             buttonElement.firstElementChild.src = constants.lastfmIconUrls.accept;
                             buttonElement.classList.add('lfmmaf-selected');
                         }
-
-                        if (settings.autoFocusNextMissingArtworkButton) {
-                            setTimeout(() => focusNextMissingArtworkButton(), 250);
-                        }
                     }
                     
                     if (uploadTab.closed || isOnUploadedImagePage) {
                         extensionLog("User uploaded an image in the new tab and/or closed the tab.");
+                        setTimeout(() => focusNextMissingArtworkButton(isOnUploadedImagePage ? null : clickedButtonLastfmLink), 250);
                         clearInterval(checkInterval);
                     }
                 } catch (err) { }
@@ -110,7 +108,7 @@ async function missingArtworkIdentifier() {
     }, true);
 }
 
-function focusNextMissingArtworkButton() {
+function focusNextMissingArtworkButton(previousLink = null) {
     const seenLastfmLinks = new Set();
     const missingArtworkButtons = Array.from(document.querySelectorAll('.lfmmaf-missing-artwork-button')).filter(button => {
         const lastfmLink = button.getAttribute('data-lfmmaf-lastfm-link');
@@ -122,7 +120,11 @@ function focusNextMissingArtworkButton() {
         }
         return true;
     });
-    const indexofLastSelectedButton = missingArtworkButtons.findLastIndex(button => button.classList.contains('lfmmaf-selected'));
+
+    const indexofLastSelectedButton = previousLink ? 
+        missingArtworkButtons.findIndex(button => button.getAttribute('data-lfmmaf-lastfm-link') === previousLink) :
+        missingArtworkButtons.findLastIndex(button => button.classList.contains('lfmmaf-selected'))
+    ;
     const nextMissingArtworkButton = missingArtworkButtons.at(indexofLastSelectedButton + 1);
     const nextPageInPagination = document.querySelector('li[aria-current="page"] + li.pagination-page > a');
     const buttonToFocus = nextMissingArtworkButton ?? (settings.autoFocusNextPageButton ? nextPageInPagination : null);
